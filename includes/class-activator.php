@@ -20,7 +20,7 @@ class Habit_Tracker_Activator
             name VARCHAR(255) NOT NULL,
             category VARCHAR(255),
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            is_active TINYINT(1) DEFAUL 1,
+            is_active TINYINT(1) DEFAULT 1,
             PRIMARY KEY (habit_id)
         ) $charset_collate;";
 
