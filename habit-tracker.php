@@ -9,3 +9,7 @@
 if (!defined('ABSPATH')) {
     exit;
 }
+
+require_once plugin_dir_path(__FILE__) .'includes/class-activator.php';
+
+register_activation_hook(__FILE__, array('Habit_Tracker_Activator', 'activate'));
