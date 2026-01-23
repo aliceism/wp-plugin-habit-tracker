@@ -4,7 +4,6 @@ class Habit_Tracker_Activator
 {
     public static function activate()
     {
-        error_log("HABIT TRACKER ACTIVATION STARTED");
         global $wpdb;
 
         $charset_collate = $wpdb->get_charset_collate();
