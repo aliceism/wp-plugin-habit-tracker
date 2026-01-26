@@ -25,9 +25,10 @@ class Habit_Tracker_Admin
     }
     public function render_admin_page()
     {
-        if (isset($_POST['habit_name'])){
-            //
+        if (isset($_POST['submit_habit'])) {
+            $this->handle_add_habit();
         }
+
         ?>
         <div class='wrap'>
             <h1>Habit Tracker</h1>
@@ -53,11 +54,33 @@ class Habit_Tracker_Admin
                         </td>
                     </tr>
                 </table>
-                <p class="submit">
-                    <input type="submit" class="button button-primary" value="Add habit">
-                </p>
+                <button type="submit" name="submit_habit" class="button button-primary">Add Habit</button>
             </form>
         </div>
         <?php
+    }
+    private function handle_add_habit()
+    {
+        global $wpdb;
+
+        if (empty($_POST['habit_name'])) {
+            return;
+        }
+
+        $table_name = $wpdb->prefix . 'habits';
+
+        $wpdb->insert(
+            $table_name,
+            [
+                "user_id" => get_current_user_id(),
+                "name" => sanitize_text_field($_POST["habit_name"]),
+                "category" => sanitize_text_field($_POST["habit_category"]),
+            ],
+            [
+                "%d",
+                "%s",
+                "%s",
+            ]
+        );
     }
 }
