@@ -25,6 +25,9 @@ class Habit_Tracker_Admin
     }
     public function render_admin_page()
     {
+        if (isset($_POST['habit_name'])){
+            //
+        }
         ?>
         <div class='wrap'>
             <h1>Habit Tracker</h1>
