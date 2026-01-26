@@ -32,7 +32,7 @@ class Habit_Tracker_Admin
         <div class='wrap'>
             <h1>Habit Tracker</h1>
 
-            <form action="post">
+            <form method="post">
                 <table class="form-table">
                     <tr>
                         <th scope="row">
