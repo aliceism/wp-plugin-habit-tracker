@@ -14,6 +14,6 @@ require_once plugin_dir_path(__FILE__) . 'includes/class-activator.php';
 
 register_activation_hook(__FILE__, array('Habit_Tracker_Activator', 'activate'));
 
-require_once plugin_dir_path(__FILE__) . 'includes/class-habit-tracker-admin.php';
+require_once plugin_dir_path(__FILE__) . 'admin/class-habit-tracker-admin.php';
 
 new Habit_Tracker_Admin();
