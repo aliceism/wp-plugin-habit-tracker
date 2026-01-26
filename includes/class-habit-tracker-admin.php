@@ -28,7 +28,32 @@ class Habit_Tracker_Admin
         ?>
         <div class='wrap'>
             <h1>Habit Tracker</h1>
-            <p>Welcome to your habit tracking dashboard.</p>
+
+            <form action="post">
+                <table class="form-table">
+                    <tr>
+                        <th scope="row">
+                            <label for="habit_name">Habit name</label>
+                        </th>
+                        <td>
+                            <input type="text" name="habit_name" id="habit_name" class="regular-text" required>
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <th scope="row">
+                            <label for="habit_category">Category</label>
+
+                        </th>
+                        <td>
+                            <input type="text" name="habit_category" id="habit_category" class="regular-text">
+                        </td>
+                    </tr>
+                </table>
+                <p class="submit">
+                    <input type="submit" class="button button-primary" value="Add habit">
+                </p>
+            </form>
         </div>
         <?php
     }
