@@ -25,6 +25,17 @@ class Habit_Tracker_Admin
     }
     public function render_admin_page()
     {
+        if (isset($_GET['delete'])) {
+            global $wpdb;
+            $habit_id = intval($_GET['delete']);
+
+            $wpdb->delete(
+                $wpdb->prefix . 'habits',
+                ['habit_id' => $habit_id],
+                ['%d']
+            );
+        }
+
         if (isset($_POST['submit_habit'])) {
             $this->handle_add_habit();
         }
@@ -71,6 +82,7 @@ class Habit_Tracker_Admin
                         <th>Habit</th>
                         <th>Category</th>
                         <th>Created</th>
+                        <th>Actions</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -80,6 +92,11 @@ class Habit_Tracker_Admin
                                 <td><?php echo esc_html($habit->name); ?></td>
                                 <td><?php echo esc_html($habit->category); ?></td>
                                 <td><?php echo esc_html($habit->created_at); ?></td>
+                                <td>
+                                    <a href="<?php echo admin_url('admin.php?page=habit-tracker&delete=' . $habit->habit_id); ?>">
+                                        Delete
+                                    </a>
+                                </td>
                             </tr>
                         <?php endforeach; ?>
                     <?php else: ?>
