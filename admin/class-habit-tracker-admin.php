@@ -31,21 +31,31 @@ class Habit_Tracker_Admin
             return;
         }
 
-        $table_name = $wpdb->prefix . 'habits';
+        $data = [
+            'name' => sanitize_text_field($_POST['habit_name']),
+            'category' => sanitize_text_field($_POST['habit_category']),
+        ];
 
-        $wpdb->insert(
-            $table_name,
-            [
-                "user_id" => get_current_user_id(),
-                "name" => sanitize_text_field($_POST["habit_name"]),
-                "category" => sanitize_text_field($_POST["habit_category"]),
-            ],
-            [
-                "%d",
-                "%s",
-                "%s",
-            ]
-        );
+        if (!empty($_POST['habit_id'])) {
+            //UPDATE
+            $wpdb->update(
+                $wpdb->prefix . 'habits',
+                $data,
+                ['habit_id' => intval($_POST['habit_id'])],
+                ['%s', '%s'],
+                ['%d']
+            );
+        } else {
+            //INSERT
+            $wpdb->insert(
+                $wpdb->prefix . 'habits',
+                array_merge(
+                    $data,
+                    ['user_id' => get_current_user_id()]
+                ),
+                ['%s', '%s', '%d'],
+            );
+        }
     }
     private function handle_delete_habit()
     {
@@ -78,6 +88,22 @@ class Habit_Tracker_Admin
                 get_current_user_id()
             )
         );
+        //Edit habit
+        $editing = false;
+        $habit_to_edit = null;
+        if (isset($_GET["edit"])) {
+            global $wpdb;
+
+            $editing = true;
+            $habit_id = intval($_GET["edit"]);
+
+            $habit_to_edit = $wpdb->get_row(
+                $wpdb->prepare(
+                    "SELECT * FROM {$wpdb->prefix}habits WHERE habit_id = %d",
+                    $habit_id
+                )
+            );
+        }
         ?>
         <div class='wrap'>
             <h1>Habit Tracker</h1>
@@ -89,21 +115,31 @@ class Habit_Tracker_Admin
                             <label for="habit_name">Habit name</label>
                         </th>
                         <td>
-                            <input type="text" name="habit_name" id="habit_name" class="regular-text" required>
+                            <input type="text" name="habit_name" value="<?php echo esc_attr($habit_to_edit->name ?? ''); ?>"
+                                id="habit_name" class="regular-text" required>
                         </td>
                     </tr>
 
                     <tr>
                         <th scope="row">
                             <label for="habit_category">Category</label>
-
                         </th>
                         <td>
-                            <input type="text" name="habit_category" id="habit_category" class="regular-text">
+                            <input type="text" name="habit_category" value="<?php echo esc_attr($habit_to_edit->name ?? ''); ?>"
+                                id="habit_category" class="regular-text">
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <?php if ($editing): ?>
+                                <input type="hidden" name="habit_id" value="<?php echo esc_attr($habit_to_edit->habit_id); ?>">
+                            <?php endif; ?>
                         </td>
                     </tr>
                 </table>
-                <button type="submit" name="submit_habit" class="button button-primary">Add Habit</button>
+                <button type="submit" name="submit_habit" class="button button-primary">
+                    <?php echo $editing ? 'Update Habit' : 'Add Habit'; ?>
+                </button>
             </form>
 
             <table class="widefat fixed striped">
@@ -123,7 +159,12 @@ class Habit_Tracker_Admin
                                 <td><?php echo esc_html($habit->category); ?></td>
                                 <td><?php echo esc_html($habit->created_at); ?></td>
                                 <td>
-                                    <a href="<?php echo admin_url('admin.php?page=habit-tracker&delete=' . $habit->habit_id); ?>">
+                                    <a href="<?php echo admin_url('admin.php?page=habit-tracker&edit=' . $habit->habit_id); ?>"
+                                        class="button">
+                                        Edit
+                                    </a>
+                                    <a href="<?php echo admin_url('admin.php?page=habit-tracker&delete=' . $habit->habit_id); ?>"
+                                        class="button">
                                         Delete
                                     </a>
                                 </td>
