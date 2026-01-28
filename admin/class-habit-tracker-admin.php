@@ -23,19 +23,49 @@ class Habit_Tracker_Admin
             25
         );
     }
-    public function render_admin_page()
+    private function handle_add_habit()
     {
-        if (isset($_GET['delete'])) {
-            global $wpdb;
-            $habit_id = intval($_GET['delete']);
+        global $wpdb;
 
-            $wpdb->delete(
-                $wpdb->prefix . 'habits',
-                ['habit_id' => $habit_id],
-                ['%d']
-            );
+        if (empty($_POST['habit_name'])) {
+            return;
         }
 
+        $table_name = $wpdb->prefix . 'habits';
+
+        $wpdb->insert(
+            $table_name,
+            [
+                "user_id" => get_current_user_id(),
+                "name" => sanitize_text_field($_POST["habit_name"]),
+                "category" => sanitize_text_field($_POST["habit_category"]),
+            ],
+            [
+                "%d",
+                "%s",
+                "%s",
+            ]
+        );
+    }
+    private function handle_delete_habit()
+    {
+        if (!isset($_GET['delete'])) {
+            return;
+        }
+
+        global $wpdb;
+        $habit_id = intval($_GET['delete']);
+
+        $wpdb->delete(
+            $wpdb->prefix . 'habits',
+            ['habit_id' => $habit_id],
+            ['%d']
+        );
+
+    }
+    public function render_admin_page()
+    {
+        $this->handle_delete_habit();
         if (isset($_POST['submit_habit'])) {
             $this->handle_add_habit();
         }
@@ -108,31 +138,7 @@ class Habit_Tracker_Admin
             </table>
 
         </div>
-
         <?php
     }
-    private function handle_add_habit()
-    {
-        global $wpdb;
 
-        if (empty($_POST['habit_name'])) {
-            return;
-        }
-
-        $table_name = $wpdb->prefix . 'habits';
-
-        $wpdb->insert(
-            $table_name,
-            [
-                "user_id" => get_current_user_id(),
-                "name" => sanitize_text_field($_POST["habit_name"]),
-                "category" => sanitize_text_field($_POST["habit_category"]),
-            ],
-            [
-                "%d",
-                "%s",
-                "%s",
-            ]
-        );
-    }
 }
