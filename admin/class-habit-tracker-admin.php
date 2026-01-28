@@ -125,8 +125,9 @@ class Habit_Tracker_Admin
                             <label for="habit_category">Category</label>
                         </th>
                         <td>
-                            <input type="text" name="habit_category" value="<?php echo esc_attr($habit_to_edit->name ?? ''); ?>"
-                                id="habit_category" class="regular-text">
+                            <input type="text" name="habit_category"
+                                value="<?php echo esc_attr($habit_to_edit->category ?? ''); ?>" id="habit_category"
+                                class="regular-text">
                         </td>
                     </tr>
                     <tr>
