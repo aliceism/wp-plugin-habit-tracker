@@ -24,6 +24,12 @@ class Habit_Tracker_Admin
     }
     private function handle_add_habit()
     {
+        if (
+            !isset($_POST['habit_nonce']) ||
+            !wp_verify_nonce($_POST['habit_nonce'], 'save_habit')
+        ) {
+            return;
+        }
         global $wpdb;
 
         if (empty($_POST['habit_name'])) {
@@ -41,24 +47,15 @@ class Habit_Tracker_Admin
         );
 
     }
-    private function handle_delete_habit()
+    private function handle_update_habit()
     {
-        if (!isset($_GET['delete'])) {
+        if (
+            !isset($_POST['habit_nonce']) ||
+            !wp_verify_nonce($_POST['habit_nonce'], 'save_habit')
+        ) {
             return;
         }
 
-        global $wpdb;
-        $habit_id = intval($_GET['delete']);
-
-        $wpdb->delete(
-            $wpdb->prefix . 'habits',
-            ['habit_id' => $habit_id],
-            ['%d']
-        );
-
-    }
-    private function handle_update_habit()
-    {
         global $wpdb;
 
         if (empty($_POST['habit_id']) || empty($_POST['habit_name'])) {
@@ -74,6 +71,22 @@ class Habit_Tracker_Admin
             ['habit_id' => intval($_POST['habit_id'])],
             ['%s', '%s'],
             ['%d'],
+        );
+
+    }
+    private function handle_delete_habit()
+    {
+        if (!isset($_GET['delete'])) {
+            return;
+        }
+
+        global $wpdb;
+        $habit_id = intval($_GET['delete']);
+
+        $wpdb->delete(
+            $wpdb->prefix . 'habits',
+            ['habit_id' => $habit_id],
+            ['%d']
         );
 
     }
@@ -116,6 +129,7 @@ class Habit_Tracker_Admin
             <h1>Habit Tracker</h1>
 
             <form method="post">
+                <?php wp_nonce_field('save_habit', 'habit_nonce'); ?>
                 <table class="form-table">
                     <tr>
                         <th scope="row">
