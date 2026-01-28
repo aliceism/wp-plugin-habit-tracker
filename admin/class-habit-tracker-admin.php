@@ -10,7 +10,6 @@ class Habit_Tracker_Admin
     {
         add_action("admin_menu", [$this, "add_plugin_menu"]);
     }
-
     public function add_plugin_menu()
     {
         add_menu_page(
@@ -31,31 +30,16 @@ class Habit_Tracker_Admin
             return;
         }
 
-        $data = [
-            'name' => sanitize_text_field($_POST['habit_name']),
-            'category' => sanitize_text_field($_POST['habit_category']),
-        ];
+        $wpdb->insert(
+            $wpdb->prefix . 'habits',
+            [
+                'user_id' => get_current_user_id(),
+                'name' => sanitize_text_field($_POST['habit_name']),
+                'category' => sanitize_text_field($_POST['habit_category']),
+            ],
+            ['%s', '%s', '%d'],
+        );
 
-        if (!empty($_POST['habit_id'])) {
-            //UPDATE
-            $wpdb->update(
-                $wpdb->prefix . 'habits',
-                $data,
-                ['habit_id' => intval($_POST['habit_id'])],
-                ['%s', '%s'],
-                ['%d']
-            );
-        } else {
-            //INSERT
-            $wpdb->insert(
-                $wpdb->prefix . 'habits',
-                array_merge(
-                    $data,
-                    ['user_id' => get_current_user_id()]
-                ),
-                ['%s', '%s', '%d'],
-            );
-        }
     }
     private function handle_delete_habit()
     {
@@ -73,11 +57,34 @@ class Habit_Tracker_Admin
         );
 
     }
+    private function handle_update_habit()
+    {
+        global $wpdb;
+
+        if (empty($_POST['habit_id']) || empty($_POST['habit_name'])) {
+            return;
+        }
+
+        $wpdb->update(
+            $wpdb->prefix . 'habits',
+            [
+                'name' => sanitize_text_field($_POST['habit_name']),
+                'category' => sanitize_text_field($_POST['habit_category']),
+            ],
+            ['habit_id' => intval($_POST['habit_id'])],
+            ['%s', '%s'],
+            ['%d'],
+        );
+
+    }
     public function render_admin_page()
     {
         $this->handle_delete_habit();
         if (isset($_POST['submit_habit'])) {
             $this->handle_add_habit();
+        }
+        if (isset($_POST['update_habit'])) {
+            $this->handle_update_habit();
         }
 
         global $wpdb;
@@ -138,7 +145,8 @@ class Habit_Tracker_Admin
                         </td>
                     </tr>
                 </table>
-                <button type="submit" name="submit_habit" class="button button-primary">
+                <button type="submit" name="<?php echo $editing ? 'update_habit' : 'submit_habit'; ?>"
+                    class="button button-primary">
                     <?php echo $editing ? 'Update Habit' : 'Add Habit'; ?>
                 </button>
             </form>
