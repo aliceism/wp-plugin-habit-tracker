@@ -106,9 +106,20 @@ class Habit_Tracker_Admin
             )
         );
     }
+    private function get_user_habits()
+    {
+        global $wpdb;
 
+        return $wpdb->get_results(
+            $wpdb->prepare(
+                "SELECT * FROM {$wpdb->prefix}habits WHERE user_id = %d ORDER BY created_at DESC",
+                get_current_user_id()
+            )
+        );
+    }
     public function render_admin_page()
     {
+        $habits = $this->get_user_habits();
         $this->handle_delete_habit();
         $habit_to_edit = $this->handle_edit_habit();
         $editing = $habit_to_edit !== null;
@@ -118,16 +129,6 @@ class Habit_Tracker_Admin
         if (isset($_POST['update_habit'])) {
             $this->handle_update_habit();
         }
-
-        global $wpdb;
-        $table_name = $wpdb->prefix . "habits";
-        $habits = $wpdb->get_results(
-            $wpdb->prepare(
-                "SELECT * FROM $table_name WHERE user_id = %d ORDER BY created_at DESC",
-                get_current_user_id()
-            )
-        );
-
         ?>
         <div class='wrap'>
             <h1>Habit Tracker</h1>
