@@ -119,8 +119,8 @@ class Habit_Tracker_Admin
     }
     public function render_admin_page()
     {
-        $habits = $this->get_user_habits();
         $this->handle_delete_habit();
+        $habits = $this->get_user_habits();
         $habit_to_edit = $this->handle_edit_habit();
         $editing = $habit_to_edit !== null;
         if (isset($_POST['submit_habit'])) {
