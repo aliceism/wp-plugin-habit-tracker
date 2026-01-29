@@ -9,6 +9,7 @@ class Habit_Tracker_Admin
     public function __construct()
     {
         add_action("admin_menu", [$this, "add_plugin_menu"]);
+        add_action("admin_init", [$this, "handle_actions"]);
     }
     public function add_plugin_menu()
     {
@@ -22,8 +23,22 @@ class Habit_Tracker_Admin
             25
         );
     }
-    private function handle_add_habit()
+    public function handle_actions()
     {
+        error_log('HANDLE ACTIONS RUN');
+        if (isset($_POST['submit_habit'])) {
+            $this->handle_add_habit();
+        }
+        if (isset($_POST['update_habit'])) {
+            $this->handle_update_habit();
+        }
+        if (isset($_GET['delete'])) {
+            $this->handle_delete_habit();
+        }
+    }
+    public function handle_add_habit()
+    {
+        error_log('ADD HABIT');
         if (
             !isset($_POST['habit_nonce']) ||
             !wp_verify_nonce($_POST['habit_nonce'], 'save_habit')
@@ -45,9 +60,12 @@ class Habit_Tracker_Admin
             ],
             ['%d', '%s', '%s'],
         );
+        wp_redirect(admin_url('admin.php?page=habit-tracker'));
+        exit;
     }
-    private function handle_update_habit()
+    public function handle_update_habit()
     {
+        error_log('UPDATE HABIT');
         if (
             !isset($_POST['habit_nonce']) ||
             !wp_verify_nonce($_POST['habit_nonce'], 'save_habit')
@@ -71,9 +89,12 @@ class Habit_Tracker_Admin
             ['%s', '%s'],
             ['%d'],
         );
+        wp_redirect(admin_url('admin.php?page=habit-tracker'));
+        exit;
     }
-    private function handle_delete_habit()
+    public function handle_delete_habit()
     {
+        error_log('DELETE HABIT');
         if (!isset($_GET['delete'])) {
             return;
         }
@@ -86,8 +107,10 @@ class Habit_Tracker_Admin
             ['habit_id' => $habit_id],
             ['%d']
         );
+        wp_redirect(admin_url('admin.php?page=habit-tracker'));
+        exit;
     }
-    private function handle_edit_habit()
+    public function handle_edit_habit()
     {
         if (!isset($_GET["edit"])) {
             return null;
@@ -103,7 +126,7 @@ class Habit_Tracker_Admin
             )
         );
     }
-    private function get_user_habits()
+    public function get_user_habits()
     {
         global $wpdb;
 
@@ -116,13 +139,6 @@ class Habit_Tracker_Admin
     }
     public function render_admin_page()
     {
-        if (isset($_POST['submit_habit'])) {
-            $this->handle_add_habit();
-        }
-        if (isset($_POST['update_habit'])) {
-            $this->handle_update_habit();
-        }
-        $this->handle_delete_habit();
         $habits = $this->get_user_habits();
         $habit_to_edit = $this->handle_edit_habit();
         $editing = $habit_to_edit !== null;

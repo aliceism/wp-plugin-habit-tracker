@@ -12,7 +12,7 @@ if (!defined('ABSPATH')) {
 
 require_once plugin_dir_path(__FILE__) . 'includes/class-activator.php';
 
-register_activation_hook(__FILE__, array('Habit_Tracker_Activator', 'activate'));
+register_activation_hook(__FILE__, ['Habit_Tracker_Activator', 'activate']);
 
 require_once plugin_dir_path(__FILE__) . 'admin/class-habit-tracker-admin.php';
 
