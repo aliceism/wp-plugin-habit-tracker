@@ -45,7 +45,6 @@ class Habit_Tracker_Admin
             ],
             ['%d', '%s', '%s'],
         );
-
     }
     private function handle_update_habit()
     {
@@ -72,7 +71,6 @@ class Habit_Tracker_Admin
             ['%s', '%s'],
             ['%d'],
         );
-
     }
     private function handle_delete_habit()
     {
@@ -88,7 +86,6 @@ class Habit_Tracker_Admin
             ['habit_id' => $habit_id],
             ['%d']
         );
-
     }
     private function handle_edit_habit()
     {
@@ -119,16 +116,16 @@ class Habit_Tracker_Admin
     }
     public function render_admin_page()
     {
-        $this->handle_delete_habit();
-        $habits = $this->get_user_habits();
-        $habit_to_edit = $this->handle_edit_habit();
-        $editing = $habit_to_edit !== null;
         if (isset($_POST['submit_habit'])) {
             $this->handle_add_habit();
         }
         if (isset($_POST['update_habit'])) {
             $this->handle_update_habit();
         }
+        $this->handle_delete_habit();
+        $habits = $this->get_user_habits();
+        $habit_to_edit = $this->handle_edit_habit();
+        $editing = $habit_to_edit !== null;
         ?>
         <div class='wrap'>
             <h1>Habit Tracker</h1>
