@@ -25,7 +25,6 @@ class Habit_Tracker_Admin
     }
     public function handle_actions()
     {
-        error_log('HANDLE ACTIONS RUN');
         if (isset($_POST['submit_habit'])) {
             $this->handle_add_habit();
         }
@@ -38,7 +37,6 @@ class Habit_Tracker_Admin
     }
     public function handle_add_habit()
     {
-        error_log('ADD HABIT');
         if (
             !isset($_POST['habit_nonce']) ||
             !wp_verify_nonce($_POST['habit_nonce'], 'save_habit')
@@ -65,7 +63,6 @@ class Habit_Tracker_Admin
     }
     public function handle_update_habit()
     {
-        error_log('UPDATE HABIT');
         if (
             !isset($_POST['habit_nonce']) ||
             !wp_verify_nonce($_POST['habit_nonce'], 'save_habit')
@@ -94,7 +91,6 @@ class Habit_Tracker_Admin
     }
     public function handle_delete_habit()
     {
-        error_log('DELETE HABIT');
         if (!isset($_GET['delete'])) {
             return;
         }
