@@ -43,7 +43,7 @@ class Habit_Tracker_Admin
                 'name' => sanitize_text_field($_POST['habit_name']),
                 'category' => sanitize_text_field($_POST['habit_category']),
             ],
-            ['%s', '%s', '%d'],
+            ['%d', '%s', '%s'],
         );
 
     }
