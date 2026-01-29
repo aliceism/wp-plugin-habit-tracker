@@ -90,9 +90,28 @@ class Habit_Tracker_Admin
         );
 
     }
+    private function handle_edit_habit()
+    {
+        if (!isset($_GET["edit"])) {
+            return null;
+        }
+        global $wpdb;
+
+        $habit_id = intval($_GET["edit"]);
+
+        return $wpdb->get_row(
+            $wpdb->prepare(
+                "SELECT * FROM {$wpdb->prefix}habits WHERE habit_id = %d",
+                $habit_id
+            )
+        );
+    }
+
     public function render_admin_page()
     {
         $this->handle_delete_habit();
+        $habit_to_edit = $this->handle_edit_habit();
+        $editing = $habit_to_edit !== null;
         if (isset($_POST['submit_habit'])) {
             $this->handle_add_habit();
         }
@@ -108,22 +127,7 @@ class Habit_Tracker_Admin
                 get_current_user_id()
             )
         );
-        //Edit habit
-        $editing = false;
-        $habit_to_edit = null;
-        if (isset($_GET["edit"])) {
-            global $wpdb;
 
-            $editing = true;
-            $habit_id = intval($_GET["edit"]);
-
-            $habit_to_edit = $wpdb->get_row(
-                $wpdb->prepare(
-                    "SELECT * FROM {$wpdb->prefix}habits WHERE habit_id = %d",
-                    $habit_id
-                )
-            );
-        }
         ?>
         <div class='wrap'>
             <h1>Habit Tracker</h1>
