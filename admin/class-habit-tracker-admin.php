@@ -25,6 +25,9 @@ class Habit_Tracker_Admin
     }
     public function handle_actions()
     {
+        if (!current_user_can('manage_options')) {
+            return;
+        }
         if (isset($_POST['submit_habit'])) {
             $this->handle_add_habit();
         }
