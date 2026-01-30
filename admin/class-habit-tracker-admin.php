@@ -10,6 +10,7 @@ class Habit_Tracker_Admin
     {
         add_action("admin_menu", [$this, "add_plugin_menu"]);
         add_action("admin_init", [$this, "handle_actions"]);
+        add_action("admin_notices", [$this, "show_admin_notices"]);
     }
     public function add_plugin_menu()
     {
@@ -61,7 +62,7 @@ class Habit_Tracker_Admin
             ],
             ['%d', '%s', '%s'],
         );
-        wp_redirect(admin_url('admin.php?page=habit-tracker'));
+        wp_redirect(admin_url('admin.php?page=habit-tracker&message=added'));
         exit;
     }
     public function handle_update_habit()
@@ -89,11 +90,14 @@ class Habit_Tracker_Admin
             ['%s', '%s'],
             ['%d'],
         );
-        wp_redirect(admin_url('admin.php?page=habit-tracker'));
+        wp_redirect(admin_url('admin.php?page=habit-tracker&message=updated'));
         exit;
     }
     public function handle_delete_habit()
     {
+        if (!current_user_can('manage_options')) {
+            return;
+        }
         if (!isset($_GET['delete']) || !isset($_GET['_wpnonce'])) {
             return;
         }
@@ -101,9 +105,6 @@ class Habit_Tracker_Admin
         $habit_id = intval($_GET['delete']);
 
         if (!wp_verify_nonce($_GET['_wpnonce'], 'delete_habit_' . $habit_id)) {
-            return;
-        }
-        if (!current_user_can('manage_options')) {
             return;
         }
 
@@ -114,7 +115,7 @@ class Habit_Tracker_Admin
             ['habit_id' => $habit_id],
             ['%d']
         );
-        wp_redirect(admin_url('admin.php?page=habit-tracker'));
+        wp_redirect(admin_url('admin.php?page=habit-tracker&message=deleted'));
         exit;
     }
     public function handle_edit_habit()
@@ -143,6 +144,28 @@ class Habit_Tracker_Admin
                 get_current_user_id()
             )
         );
+    }
+    public function show_admin_notices()
+    {
+        if (!isset($_GET["message"])) {
+            return;
+        }
+        $message = sanitize_text_field($_GET["message"]);
+        $messages = [
+            "added" => ['Habit added successfully.', 'success'],
+            "updated" => ['Habit updated successfully.', 'success'],
+            "deleted" => ['Habit deleted successfully.', 'success'],
+            "error" => ['Something went wrong.', 'error'],
+        ];
+        if (!isset($messages[$message])) {
+            return;
+        }
+        [$text, $type] = $messages[$message];
+        ?>
+        <div class="notice notice-<?php echo esc_attr($type); ?> is-dismissible">
+            <p><?php echo esc_html($text); ?></p>
+        </div>
+        <?php
     }
     public function render_admin_page()
     {
