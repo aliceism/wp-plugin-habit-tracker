@@ -94,12 +94,20 @@ class Habit_Tracker_Admin
     }
     public function handle_delete_habit()
     {
-        if (!isset($_GET['delete'])) {
+        if (!isset($_GET['delete']) || !isset($_GET['_wpnonce'])) {
+            return;
+        }
+
+        $habit_id = intval($_GET['delete']);
+
+        if (!wp_verify_nonce($_GET['_wpnonce'], 'delete_habit_' . $habit_id)) {
+            return;
+        }
+        if (!current_user_can('manage_options')) {
             return;
         }
 
         global $wpdb;
-        $habit_id = intval($_GET['delete']);
 
         $wpdb->delete(
             $wpdb->prefix . 'habits',
@@ -203,8 +211,12 @@ class Habit_Tracker_Admin
                                         class="button">
                                         Edit
                                     </a>
-                                    <a href="<?php echo admin_url('admin.php?page=habit-tracker&delete=' . $habit->habit_id); ?>"
-                                        class="button">
+                                    <?php
+                                    $delete_url = wp_nonce_url(
+                                        admin_url('admin.php?page=habit-tracker&delete=' . $habit->habit_id),
+                                        'delete_habit_' . $habit->habit_id
+                                    ); ?>
+                                    <a href="<?php echo esc_url($delete_url); ?>" class="button button-link-delete">
                                         Delete
                                     </a>
                                 </td>
