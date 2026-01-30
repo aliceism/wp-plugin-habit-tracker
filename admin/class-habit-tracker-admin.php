@@ -165,7 +165,15 @@ class Habit_Tracker_Admin
         <div class="notice notice-<?php echo esc_attr($type); ?> is-dismissible">
             <p><?php echo esc_html($text); ?></p>
         </div>
+        <script>
+            if (window.history.replaceState) {
+                const url = new URL(window.location);
+                url.searchParams.delete('message');
+                window.history.replaceState({}, document.title, url);
+            }
+        </script>
         <?php
+
     }
     public function render_admin_page()
     {
