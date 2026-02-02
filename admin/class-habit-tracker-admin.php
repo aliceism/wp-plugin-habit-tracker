@@ -242,12 +242,11 @@ class Habit_Tracker_Admin
                                         class="button">
                                         Edit
                                     </a>
-                                    <?php
-                                    $delete_url = wp_nonce_url(
-                                        admin_url('admin.php?page=habit-tracker&delete=' . $habit->habit_id),
-                                        'delete_habit_' . $habit->habit_id
-                                    ); ?>
-                                    <a href="<?php echo esc_url($delete_url); ?>" class="button button-link-delete">
+
+                                    <a href="<?php echo admin_url('admin.php?page=habit-tracker&delete=' . $habit->habit_id .
+                                        '&_wpnonce=' . wp_create_nonce('delete_habit_' . $habit->habit_id))
+                                    ; ?>" class="button habit-delete"
+                                        data-habit="<?php echo esc_attr($habit->name); ?>">
                                         Delete
                                     </a>
                                 </td>
@@ -255,11 +254,29 @@ class Habit_Tracker_Admin
                         <?php endforeach; ?>
                     <?php else: ?>
                         <tr>
-                            <td colspan="3">No habits added yet.</td>
+                            <td colspan=" 3">No habits added yet.
+                            </td>
                         </tr>
                     <?php endif; ?>
                 </tbody>
             </table>
+            <script>
+                document.addEventListener('DOMContentLoaded', function () {
+                    const deleteLinks = document.querySelectorAll('.habit-delete');
+
+                    deleteLinks.forEach(function (link) {
+                        link.addEventListener('click', function (e) {
+
+                            const habitName = link.dataset.habit || "this habit";
+
+                            if (!confirm(`Are you sure you want to delete "${habitName}"?`)) {
+                                e.preventDefault();
+                            }
+                        })
+
+                    });
+                })
+            </script>
 
         </div>
         <?php
