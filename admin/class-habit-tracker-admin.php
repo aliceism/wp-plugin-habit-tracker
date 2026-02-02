@@ -11,6 +11,8 @@ class Habit_Tracker_Admin
         add_action("admin_menu", [$this, "add_plugin_menu"]);
         add_action("admin_init", [$this, "handle_actions"]);
         add_action("admin_notices", [$this, "show_admin_notices"]);
+        add_action("admin_enqueue_scripts", [$this, "enqueue_admin_scripts"]);
+        add_action("wp_ajax_delete_habit", [$this, "ajax_delete_habit"]);
     }
     public function add_plugin_menu()
     {
@@ -175,6 +177,42 @@ class Habit_Tracker_Admin
         <?php
 
     }
+    public function enqueue_admin_scripts()
+    {
+        wp_enqueue_script(
+            'habit-admin',
+            plugin_dir_url(__FILE__) . '../js/habit-admin.js',
+            ['jquery'],
+            '1.0',
+            true
+        );
+        wp_localize_script('habit-admin', 'habitTracker', [
+            'nonce' => wp_create_nonce('delete_habit_nonce'),
+        ]);
+    }
+
+    public function ajax_delete_habit()
+    {
+        if (
+            !isset($_POST['nonce']) ||
+            !wp_verify_nonce($_POST['nonce'], 'delete_habit_nonce')
+        ) {
+            wp_send_json_error();
+
+        }
+        if (!current_user_can('manage-options')) {
+            wp_send_json_error();
+        }
+        global $wpdb;
+        $habit_id = intval($_POST['habit_id']);
+
+        $wpdb->delete(
+            $wpdb->prefix . 'habits',
+            ['habit_id' => $habit_id],
+            ['%d']
+        );
+        wp_send_json_success();
+    }
     public function render_admin_page()
     {
         $habits = $this->get_user_habits();
@@ -246,7 +284,8 @@ class Habit_Tracker_Admin
                                     <a href="<?php echo admin_url('admin.php?page=habit-tracker&delete=' . $habit->habit_id .
                                         '&_wpnonce=' . wp_create_nonce('delete_habit_' . $habit->habit_id))
                                     ; ?>" class="button habit-delete"
-                                        data-habit="<?php echo esc_attr($habit->name); ?>">
+                                        data-id="<?php echo esc_attr($habit->habit_id); ?>"
+                                        data-name="<?php echo esc_attr($habit->name); ?>">
                                         Delete
                                     </a>
                                 </td>
