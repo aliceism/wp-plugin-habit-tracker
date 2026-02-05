@@ -11,8 +11,10 @@ class Habit_Tracker_Admin
         add_action("admin_menu", [$this, "add_plugin_menu"]);
         add_action("admin_init", [$this, "handle_actions"]);
         add_action("admin_notices", [$this, "show_admin_notices"]);
-        add_action("admin_enqueue_scripts", [$this, "enqueue_admin_scripts"]);
+        add_action("admin_enqueue_scripts", [$this, "enqueue_admin_assets"]);
+        add_action("wp_ajax_add_habit", [$this, "ajax_add_habit"]);
         add_action("wp_ajax_delete_habit", [$this, "ajax_delete_habit"]);
+
     }
     public function add_plugin_menu()
     {
@@ -177,41 +179,83 @@ class Habit_Tracker_Admin
         <?php
 
     }
-    public function enqueue_admin_scripts()
+    public function enqueue_admin_assets()
     {
         wp_enqueue_script(
             'habit-admin',
-            plugin_dir_url(__FILE__) . '../js/habit-admin.js',
+            plugin_dir_url(__FILE__) . 'js/habit-admin.js',
             ['jquery'],
             '1.0',
             true
         );
         wp_localize_script('habit-admin', 'habitTracker', [
-            'nonce' => wp_create_nonce('delete_habit_nonce'),
+            'ajax_url' => admin_url('admin-ajax.php'),
+            'nonce' => wp_create_nonce('habit_ajax_nonce'),
         ]);
     }
-
-    public function ajax_delete_habit()
+    public function ajax_add_habit()
     {
-        if (
-            !isset($_POST['nonce']) ||
-            !wp_verify_nonce($_POST['nonce'], 'delete_habit_nonce')
-        ) {
-            wp_send_json_error();
+        check_ajax_referer('habit_ajax_nonce', 'nonce');
 
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(['message' => 'No permission']);
         }
-        if (!current_user_can('manage-options')) {
-            wp_send_json_error();
+        $name = sanitize_text_field($_POST['habit_name'] ?? '');
+        $category = sanitize_text_field($_POST['habit_category'] ?? '');
+
+        if (empty($name)) {
+            wp_send_json_error(['message' => 'Habit name is required']);
         }
         global $wpdb;
-        $habit_id = intval($_POST['habit_id']);
 
-        $wpdb->delete(
+        $inserted = $wpdb->insert(
             $wpdb->prefix . 'habits',
-            ['habit_id' => $habit_id],
-            ['%d']
+            [
+                'user_id' => get_current_user_id(),
+                'name' => $name,
+                'category' => $category,
+            ],
+            ['%d', '%s', '%s'],
         );
-        wp_send_json_success();
+
+        if (!$inserted) {
+            wp_send_json_error(['message' => 'Failed to add habit']);
+        }
+
+        wp_send_json_success([
+            'message' => 'Habit added',
+            'habit' =>
+                [
+                    'id' => $wpdb->insert_id,
+                    'name' => $name,
+                    'category' => $category,
+                ]
+        ]);
+    }
+    public function ajax_delete_habit()
+    {
+        check_ajax_referer('habit_ajax_nonce', 'nonce');
+
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(['message' => 'You do not have permission to delete this habit.']);
+        }
+
+        $habit_id = intval($_POST['habit_id']) ?? 0;
+
+        if (!$habit_id) {
+            wp_send_json_error(['message' => 'Invalid habit ID']);
+        }
+
+        global $wpdb;
+
+        $deleted = $wpdb->delete($wpdb->prefix . 'habits', ['habit_id' => $habit_id], ['%d']);
+
+        if (!$deleted) {
+            wp_send_json_error(['message' => 'Failed to delete habit']);
+        }
+
+        wp_send_json_success(['message' => 'Habit deleted successfully']);
+
     }
     public function render_admin_page()
     {
@@ -221,8 +265,7 @@ class Habit_Tracker_Admin
         ?>
         <div class='wrap'>
             <h1>Habit Tracker</h1>
-
-            <form method="post">
+            <form method="post" id="habit-form">
                 <?php wp_nonce_field('save_habit', 'habit_nonce'); ?>
                 <table class="form-table">
                     <tr>
@@ -299,23 +342,6 @@ class Habit_Tracker_Admin
                     <?php endif; ?>
                 </tbody>
             </table>
-            <script>
-                document.addEventListener('DOMContentLoaded', function () {
-                    const deleteLinks = document.querySelectorAll('.habit-delete');
-
-                    deleteLinks.forEach(function (link) {
-                        link.addEventListener('click', function (e) {
-
-                            const habitName = link.dataset.habit || "this habit";
-
-                            if (!confirm(`Are you sure you want to delete "${habitName}"?`)) {
-                                e.preventDefault();
-                            }
-                        })
-
-                    });
-                })
-            </script>
 
         </div>
         <?php
