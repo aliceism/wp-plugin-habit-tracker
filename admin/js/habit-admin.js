@@ -32,6 +32,8 @@ jQuery(document).ready(function ($) {
 
         showNotice(response.data.message, "success");
 
+        $("#habits-table tbody").append(response.data.row);
+
         form.reset();
       }
     );

@@ -208,28 +208,55 @@ class Habit_Tracker_Admin
         }
         global $wpdb;
 
-        $inserted = $wpdb->insert(
+        $wpdb->insert(
             $wpdb->prefix . 'habits',
             [
                 'user_id' => get_current_user_id(),
                 'name' => $name,
                 'category' => $category,
+                'created_at' => current_time('mysql'),
             ],
-            ['%d', '%s', '%s'],
+            ['%d', '%s', '%s', '%s'],
         );
 
-        if (!$inserted) {
-            wp_send_json_error(['message' => 'Failed to add habit']);
-        }
+        $habit_id = $wpdb->insert_id;
 
+        $habit = $wpdb->get_row(
+            $wpdb->prepare(
+                "SELECT * FROM {$wpdb->prefix}habits WHERE habit_id = %d",
+                $habit_id
+            )
+        );
+        ob_start();
+        ?>
+        <tr data-id="<?php echo esc_attr($habit->habit_id); ?>">
+            <td>
+                <?php echo esc_html($habit->name); ?>
+            </td>
+            <td>
+                <?php echo esc_html($habit->category); ?>
+            </td>
+            <td>
+                <?php echo esc_html($habit->created_at); ?>
+            </td>
+            <td>
+                <a href="<?php echo admin_url('admin.php?page=habit-tracker&edit=' . $habit->habit_id); ?>" class="button">
+                    Edit
+                </a>
+
+                <a href="<?php echo admin_url('admin.php?page=habit-tracker&delete=' . $habit->habit_id .
+                    '&_wpnonce=' . wp_create_nonce('delete_habit_' . $habit->habit_id))
+                ; ?>" class="button habit-delete" data-id="<?php echo esc_attr($habit->habit_id); ?>"
+                    data-name="<?php echo esc_attr($habit->name); ?>">
+                    Delete
+                </a>
+            </td>
+        </tr>
+        <?php
+        $row_html = ob_get_clean();
         wp_send_json_success([
-            'message' => 'Habit added',
-            'habit' =>
-                [
-                    'id' => $wpdb->insert_id,
-                    'name' => $name,
-                    'category' => $category,
-                ]
+            'message' => 'Habit added successfully',
+            'row' => $row_html
         ]);
     }
     public function ajax_delete_habit()
@@ -302,7 +329,7 @@ class Habit_Tracker_Admin
                 </button>
             </form>
 
-            <table class="widefat fixed striped">
+            <table class="widefat fixed striped" id="habits-table">
                 <thead>
                     <tr>
                         <th>Habit</th>
@@ -311,7 +338,7 @@ class Habit_Tracker_Admin
                         <th>Actions</th>
                     </tr>
                 </thead>
-                <tbody>
+                <tbody id="habits-table-body">
                     <?php if (!empty($habits)): ?>
                         <?php foreach ($habits as $habit): ?>
                             <tr>
