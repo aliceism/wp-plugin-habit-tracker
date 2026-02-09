@@ -123,10 +123,20 @@ class Habit_Tracker_Admin
 
         global $wpdb;
 
-        $deleted = $wpdb->delete($wpdb->prefix . 'habits', ['habit_id' => $habit_id], ['%d']);
+        $deleted = $wpdb->delete(
+            $wpdb->prefix . 'habits',
+            [
+                'habit_id' => $habit_id,
+                'user_id' => get_current_user_id(),
+            ],
+            ['%d', '%d']
+        );
 
         if (!$deleted) {
             wp_send_json_error(['message' => 'Failed to delete habit']);
+        }
+        if ($deleted === 0) {
+            wp_send_json_error(['message' => 'Habit not found or not permission']);
         }
 
         wp_send_json_success(['message' => 'Habit deleted successfully']);
@@ -156,13 +166,20 @@ class Habit_Tracker_Admin
                 'name' => $name,
                 'category' => $category
             ],
-            ['habit_id' => $habit_id],
+            [
+                'habit_id' => $habit_id,
+                'user_id' => get_current_user_id()
+            ],
             ['%s', '%s'],
-            ['%d']
+            ['%d', '%d']
         );
-        if ($updated === false) {
+        if (!$updated) {
             wp_send_json_error(['message' => 'DB update failed']);
         }
+        if ($updated === 0) {
+            wp_send_json_error(['message' => 'Habit not found or no permission']);
+        }
+
         wp_send_json_success(['message' => 'Habit updated']);
     }
     public function get_user_habits()
