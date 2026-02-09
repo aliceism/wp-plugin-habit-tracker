@@ -124,6 +124,11 @@ jQuery(document).ready(function ($) {
     const name = row.find(".habit-name-input").val();
     const category = row.find(".habit-category-input").val();
 
+    const saveBtn = row.find(".habit-save");
+
+    saveBtn.text("Saving...");
+    saveBtn.css("pointer-events", "none");
+
     $.post(
       habitTracker.ajax_url,
       {
@@ -141,6 +146,9 @@ jQuery(document).ready(function ($) {
           showNotice(response.data.message, "error");
         }
       }
-    );
+    ).always(function () {
+      saveBtn.text("Save");
+      saveBtn.css("pointer-events", "auto");
+    });
   });
 });
