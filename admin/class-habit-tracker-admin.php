@@ -156,11 +156,11 @@ class Habit_Tracker_Admin
                 'name' => $name,
                 'category' => $category
             ],
-            ['id' => $habit_id],
+            ['habit_id' => $habit_id],
             ['%s', '%s'],
             ['%d']
         );
-        if (!$updated === false) {
+        if ($updated === false) {
             wp_send_json_error(['message' => 'DB update failed']);
         }
         wp_send_json_success(['message' => 'Habit updated']);
