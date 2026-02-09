@@ -243,7 +243,7 @@ class Habit_Tracker_Admin
                             <tr data-id="<?php echo esc_html($habit->habit_id); ?>" data-name="<?php echo esc_html($habit->name); ?>"
                                 data-category="<?php echo esc_html($habit->category); ?>">
                                 <td class="habit-name"><?php echo esc_html($habit->name); ?></td>
-                                <td class="habit_category"><?php echo esc_html($habit->category); ?></td>
+                                <td class="habit-category"><?php echo esc_html($habit->category); ?></td>
                                 <td><?php echo esc_html($habit->created_at); ?></td>
 
                                 <td class="actions">
