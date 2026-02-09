@@ -75,33 +75,9 @@ class Habit_Tracker_Admin
                 $habit_id
             )
         );
-        ob_start();
-        ?>
-        <tr data-id="<?php echo esc_attr($habit->habit_id); ?>">
-            <td>
-                <?php echo esc_html($habit->name); ?>
-            </td>
-            <td>
-                <?php echo esc_html($habit->category); ?>
-            </td>
-            <td>
-                <?php echo esc_html($habit->created_at); ?>
-            </td>
-            <td>
-                <a href="<?php echo admin_url('admin.php?page=habit-tracker&edit=' . $habit->habit_id); ?>" class="button">
-                    Edit
-                </a>
 
-                <a href="<?php echo admin_url('admin.php?page=habit-tracker&delete=' . $habit->habit_id .
-                    '&_wpnonce=' . wp_create_nonce('delete_habit_' . $habit->habit_id))
-                ; ?>" class="button habit-delete" data-id="<?php echo esc_attr($habit->habit_id); ?>"
-                    data-name="<?php echo esc_attr($habit->name); ?>">
-                    Delete
-                </a>
-            </td>
-        </tr>
-        <?php
-        $row_html = ob_get_clean();
+        $row_html = $this->render_habit_row($habit);
+
         wp_send_json_success([
             'message' => 'Habit added successfully',
             'row' => $row_html
@@ -193,6 +169,44 @@ class Habit_Tracker_Admin
             )
         );
     }
+    private function render_habit_row($habit)
+    {
+        ob_start();
+        ?>
+        <tr data-id="<?php echo esc_html($habit->habit_id); ?>" data-name="<?php echo esc_html($habit->name); ?>"
+            data-category="<?php echo esc_html($habit->category); ?>">
+            <td class="habit-name">
+                <?php echo esc_html($habit->name); ?>
+            </td>
+            <td class="habit-category">
+                <?php echo esc_html($habit->category); ?>
+            </td>
+            <td>
+                <?php echo esc_html($habit->created_at); ?>
+            </td>
+
+            <td class="actions">
+                <a href="#" class="button habit-edit">
+                    Edit
+                </a>
+                <a href="#" class="button button-primary habit-save">
+                    Save
+                </a>
+                <a href="#" class="button habit-cancel">
+                    Cancel
+                </a>
+
+                <a href="<?php echo admin_url('admin.php?page=habit-tracker&delete=' . $habit->habit_id .
+                    '&_wpnonce=' . wp_create_nonce('delete_habit_' . $habit->habit_id))
+                ; ?>" class="button habit-delete" data-id="<?php echo esc_attr($habit->habit_id); ?>"
+                    data-name="<?php echo esc_attr($habit->name); ?>">
+                    Delete
+                </a>
+            </td>
+        </tr>
+        <?php
+        return ob_get_clean();
+    }
     public function render_admin_page()
     {
         $habits = $this->get_user_habits();
@@ -240,32 +254,7 @@ class Habit_Tracker_Admin
                 <tbody id="habits-table-body">
                     <?php if (!empty($habits)): ?>
                         <?php foreach ($habits as $habit): ?>
-                            <tr data-id="<?php echo esc_html($habit->habit_id); ?>" data-name="<?php echo esc_html($habit->name); ?>"
-                                data-category="<?php echo esc_html($habit->category); ?>">
-                                <td class="habit-name"><?php echo esc_html($habit->name); ?></td>
-                                <td class="habit-category"><?php echo esc_html($habit->category); ?></td>
-                                <td><?php echo esc_html($habit->created_at); ?></td>
-
-                                <td class="actions">
-                                    <a href="#" class="button habit-edit">
-                                        Edit
-                                    </a>
-                                    <a href="#" class="button button-primary habit-save">
-                                        Save
-                                    </a>
-                                    <a href="#" class="button habit-cancel">
-                                        Cancel
-                                    </a>
-
-                                    <a href="<?php echo admin_url('admin.php?page=habit-tracker&delete=' . $habit->habit_id .
-                                        '&_wpnonce=' . wp_create_nonce('delete_habit_' . $habit->habit_id))
-                                    ; ?>" class="button habit-delete"
-                                        data-id="<?php echo esc_attr($habit->habit_id); ?>"
-                                        data-name="<?php echo esc_attr($habit->name); ?>">
-                                        Delete
-                                    </a>
-                                </td>
-                            </tr>
+                            <?php echo $this->render_habit_row($habit); ?>
                         <?php endforeach; ?>
                     <?php else: ?>
                         <tr>
