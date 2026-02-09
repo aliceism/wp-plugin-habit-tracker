@@ -85,6 +85,11 @@ jQuery(document).ready(function ($) {
   $(document).on("click", ".habit-edit", function (e) {
     e.preventDefault();
 
+    if ($(".habit-save:visible").length) {
+      showNotice("Finish editing the current habit first.", "error");
+      return;
+    }
+
     const row = $(this).closest("tr");
     const name = row.data("name");
     const category = row.data("category");
