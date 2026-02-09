@@ -233,10 +233,10 @@ class Habit_Tracker_Admin
                                     <a href="#" class="button habit-edit">
                                         Edit
                                     </a>
-                                    <a href="#" class="button button-primary habit-save" style="display:none">
+                                    <a href="#" class="button button-primary habit-save">
                                         Save
                                     </a>
-                                    <a href="#" class="button habit-cancel" style="display:none">
+                                    <a href="#" class="button habit-cancel">
                                         Cancel
                                     </a>
 
