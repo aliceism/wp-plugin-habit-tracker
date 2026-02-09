@@ -9,8 +9,6 @@ class Habit_Tracker_Admin
     public function __construct()
     {
         add_action("admin_menu", [$this, "add_plugin_menu"]);
-        add_action("admin_init", [$this, "handle_actions"]);
-        add_action("admin_notices", [$this, "show_admin_notices"]);
         add_action("admin_enqueue_scripts", [$this, "enqueue_admin_assets"]);
         add_action("wp_ajax_add_habit", [$this, "ajax_add_habit"]);
         add_action("wp_ajax_delete_habit", [$this, "ajax_delete_habit"]);
@@ -28,157 +26,6 @@ class Habit_Tracker_Admin
             'dashicons_heart',
             25
         );
-    }
-    public function handle_actions()
-    {
-        if (!current_user_can('manage_options')) {
-            return;
-        }
-        if (isset($_POST['submit_habit'])) {
-            $this->handle_add_habit();
-        }
-        if (isset($_POST['update_habit'])) {
-            $this->handle_update_habit();
-        }
-        if (isset($_GET['delete'])) {
-            $this->handle_delete_habit();
-        }
-    }
-    public function handle_add_habit()
-    {
-        if (
-            !isset($_POST['habit_nonce']) ||
-            !wp_verify_nonce($_POST['habit_nonce'], 'save_habit')
-        ) {
-            return;
-        }
-        global $wpdb;
-
-        if (empty($_POST['habit_name'])) {
-            return;
-        }
-
-        $wpdb->insert(
-            $wpdb->prefix . 'habits',
-            [
-                'user_id' => get_current_user_id(),
-                'name' => sanitize_text_field($_POST['habit_name']),
-                'category' => sanitize_text_field($_POST['habit_category']),
-            ],
-            ['%d', '%s', '%s'],
-        );
-        wp_redirect(admin_url('admin.php?page=habit-tracker&message=added'));
-        exit;
-    }
-    public function handle_update_habit()
-    {
-        if (
-            !isset($_POST['habit_nonce']) ||
-            !wp_verify_nonce($_POST['habit_nonce'], 'save_habit')
-        ) {
-            return;
-        }
-
-        global $wpdb;
-
-        if (empty($_POST['habit_id']) || empty($_POST['habit_name'])) {
-            return;
-        }
-
-        $wpdb->update(
-            $wpdb->prefix . 'habits',
-            [
-                'name' => sanitize_text_field($_POST['habit_name']),
-                'category' => sanitize_text_field($_POST['habit_category']),
-            ],
-            ['habit_id' => intval($_POST['habit_id'])],
-            ['%s', '%s'],
-            ['%d'],
-        );
-        wp_redirect(admin_url('admin.php?page=habit-tracker&message=updated'));
-        exit;
-    }
-    public function handle_delete_habit()
-    {
-        if (!current_user_can('manage_options')) {
-            return;
-        }
-        if (!isset($_GET['delete']) || !isset($_GET['_wpnonce'])) {
-            return;
-        }
-
-        $habit_id = intval($_GET['delete']);
-
-        if (!wp_verify_nonce($_GET['_wpnonce'], 'delete_habit_' . $habit_id)) {
-            return;
-        }
-
-        global $wpdb;
-
-        $wpdb->delete(
-            $wpdb->prefix . 'habits',
-            ['habit_id' => $habit_id],
-            ['%d']
-        );
-        wp_redirect(admin_url('admin.php?page=habit-tracker&message=deleted'));
-        exit;
-    }
-    public function handle_edit_habit()
-    {
-        if (!isset($_GET["edit"])) {
-            return null;
-        }
-        global $wpdb;
-
-        $habit_id = intval($_GET["edit"]);
-
-        return $wpdb->get_row(
-            $wpdb->prepare(
-                "SELECT * FROM {$wpdb->prefix}habits WHERE habit_id = %d",
-                $habit_id
-            )
-        );
-    }
-    public function get_user_habits()
-    {
-        global $wpdb;
-
-        return $wpdb->get_results(
-            $wpdb->prepare(
-                "SELECT * FROM {$wpdb->prefix}habits WHERE user_id = %d ORDER BY created_at DESC",
-                get_current_user_id()
-            )
-        );
-    }
-    public function show_admin_notices()
-    {
-        if (!isset($_GET["message"])) {
-            return;
-        }
-        $message = sanitize_text_field($_GET["message"]);
-        $messages = [
-            "added" => ['Habit added successfully.', 'success'],
-            "updated" => ['Habit updated successfully.', 'success'],
-            "deleted" => ['Habit deleted successfully.', 'success'],
-            "error" => ['Something went wrong.', 'error'],
-        ];
-        if (!isset($messages[$message])) {
-            return;
-        }
-        [$text, $type] = $messages[$message];
-        ?>
-        <div class="notice notice-<?php echo esc_attr($type); ?> is-dismissible">
-            <p><?php echo esc_html($text); ?></p>
-        </div>
-        <script>
-            if (window.history.replaceState) {
-                const url = new URL(window.location);
-                url.searchParams.delete('message');
-                window.history.replaceState({}, document.title, url);
-            }
-        </script>
-        <?php
-
     }
     public function enqueue_admin_assets()
     {
@@ -317,6 +164,17 @@ class Habit_Tracker_Admin
             wp_send_json_error(['message' => 'DB update failed']);
         }
         wp_send_json_success(['message' => 'Habit updated']);
+    }
+    public function get_user_habits()
+    {
+        global $wpdb;
+
+        return $wpdb->get_results(
+            $wpdb->prepare(
+                "SELECT * FROM {$wpdb->prefix}habits WHERE user_id = %d ORDER BY created_at DESC",
+                get_current_user_id()
+            )
+        );
     }
     public function render_admin_page()
     {

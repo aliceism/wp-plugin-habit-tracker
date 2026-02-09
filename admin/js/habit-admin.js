@@ -48,12 +48,12 @@ jQuery(document).ready(function ($) {
 
     row
       .find(".habit-name")
-      .html(`<input type="text" class="habit-name-input" value="${name}"`);
+      .html(`<input type="text" class="habit-name-input" value="${name}">`);
 
     row
       .find(".habit-category")
       .html(
-        `<input type="text" class="habit-category-input" value="${category}"`
+        `<input type="text" class="habit-category-input" value="${category}">`
       );
 
     row.find(".habit-edit").hide();
