@@ -12,6 +12,18 @@ jQuery(document).ready(function ($) {
     });
   }
 
+  function ensureEmptyState() {
+    const tbody = $("#habits-table tbody");
+    const rows = tbody.find("tr").not(".empty-row");
+
+    if (rows.length === 0) {
+      tbody.append(`
+        <tr class="empty-row">
+        <td colspan="4">No habits added yet.</td>
+        </tr>`);
+    }
+  }
+
   function exitEditMode(row, name, category) {
     row.data("name", name);
     row.data("category", category);
@@ -46,6 +58,7 @@ jQuery(document).ready(function ($) {
         }
         button.closest("tr").fadeOut(300, function () {
           $(this).remove();
+          ensureEmptyState();
         });
         showNotice(response.data.message, "success");
       }
@@ -56,6 +69,7 @@ jQuery(document).ready(function ($) {
     e.preventDefault();
 
     const form = this;
+    const tbody = $("#habits-table tbody");
 
     $.post(
       habitTracker.ajax_url,
@@ -73,7 +87,8 @@ jQuery(document).ready(function ($) {
 
         showNotice(response.data.message, "success");
 
-        $("#habits-table tbody").append(response.data.row);
+        tbody.find(".empty-row").remove();
+        tbody.append(response.data.row);
 
         form.reset();
       }

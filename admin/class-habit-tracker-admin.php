@@ -269,7 +269,7 @@ class Habit_Tracker_Admin
                         <?php endforeach; ?>
                     <?php else: ?>
                         <tr>
-                            <td colspan=" 3">No habits added yet.
+                            <td colspan="3">No habits added yet.
                             </td>
                         </tr>
                     <?php endif; ?>
