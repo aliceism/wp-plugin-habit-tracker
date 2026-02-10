@@ -242,6 +242,30 @@ class Habit_Tracker_Admin
 
             <hr>
 
+            <div class="habit-filters" style="margin: 20px 0; display: flex; gap: 10px; align-items: center;">
+
+                <input type="text" id="habit-search" placeholder="Search habits..." class="regular-text">
+
+                <select id="habit-category-filter">
+                    <option value="all">All categories</option>
+
+                    <?php
+                    $categories = array_unique(array_map(fn($h) => $h->category, $habits));
+                    foreach ($categories as $cat):
+                        if (empty($cat))
+                            continue;
+                        ?>
+                        <option value="<?php echo esc_attr($cat); ?>">
+                            <?php echo esc_html($cat); ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+
+                <button type="button" class="button" id="habit-filter-apply">
+                    Apply
+                </button>
+            </div>
+
             <table class="widefat fixed striped" id="habits-table">
                 <thead>
                     <tr>
