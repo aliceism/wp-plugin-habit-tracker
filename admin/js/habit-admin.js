@@ -95,6 +95,9 @@ jQuery(document).ready(function ($) {
         tbody.find(".empty-row").remove();
         tbody.append(response.data.row);
 
+        const newRow = tbody.children("tr").last();
+        initHabitRowUI(newRow);
+
         form.reset();
       }
     );
