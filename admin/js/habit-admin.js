@@ -166,4 +166,42 @@ jQuery(document).ready(function ($) {
       saveBtn.css("pointer-events", "auto");
     });
   });
+
+  $(document).on("click", "#habit-filter-apply", function () {
+    const search = $("#habit-search").val().trim();
+    const category = $("#habit-category-filter").val();
+
+    const tbody = $("#habits-table tbody");
+
+    tbody.html(`
+        <tr>
+            <td colspan="4">Loading...</td>
+        </tr>
+    `);
+
+    $.post(
+      habitTracker.ajax_url,
+      {
+        action: "filter_habits",
+        nonce: habitTracker.nonce,
+        search: search,
+        category: category,
+      },
+      function (response) {
+        if (!response.success) {
+          showNotice(response.data.message || "Filter failed", "error");
+          return;
+        }
+        if (response.data.rows.trim() === "") {
+          tbody.html(`
+                <tr>
+                    <td colspan="4">No habits found.</td>
+                </tr>
+            `);
+        } else {
+          tbody.html(response.data.rows);
+        }
+      }
+    );
+  });
 });
