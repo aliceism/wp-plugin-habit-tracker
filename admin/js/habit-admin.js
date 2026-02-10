@@ -12,6 +12,11 @@ jQuery(document).ready(function ($) {
     });
   }
 
+  function initHabitRowUI(context = document) {
+    $(context).find(".habit-save, .habit-cancel").css("display", "none");
+    $(context).find(".habit-edit").css("display", "inline-block");
+  }
+
   function ensureEmptyState() {
     const tbody = $("#habits-table tbody");
     const rows = tbody.find("tr").not(".empty-row");
@@ -95,7 +100,7 @@ jQuery(document).ready(function ($) {
     );
   });
 
-  $(".habit-save, .habit-cancel").css("display", "none");
+  initHabitRowUI();
 
   $(document).on("click", ".habit-edit", function (e) {
     e.preventDefault();
@@ -200,6 +205,7 @@ jQuery(document).ready(function ($) {
             `);
         } else {
           tbody.html(response.data.rows);
+          initHabitRowUI();
         }
       }
     );

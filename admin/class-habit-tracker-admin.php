@@ -13,6 +13,7 @@ class Habit_Tracker_Admin
         add_action("wp_ajax_add_habit", [$this, "ajax_add_habit"]);
         add_action("wp_ajax_delete_habit", [$this, "ajax_delete_habit"]);
         add_action("wp_ajax_update_habit", [$this, "ajax_update_habit"]);
+        add_action("wp_ajax_filter_habits", [$this, "ajax_filter_habits"]);
 
     }
     public function add_plugin_menu()
@@ -116,6 +117,72 @@ class Habit_Tracker_Admin
         }
 
         wp_send_json_success(['message' => 'Habit deleted successfully']);
+
+    }
+    public function ajax_filter_habits()
+    {
+        check_ajax_referer('habit_ajax_nonce', 'nonce');
+
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(['message' => "No permission"]);
+        }
+
+        global $wpdb;
+
+        $search = isset($_POST["search"]) ? sanitize_text_field($_POST["search"]) : "";
+        $category = isset($_POST["category"]) ? sanitize_text_field($_POST["category"]) : "all";
+
+        $table = $wpdb->prefix . "habits";
+
+        //Base Query
+        $where = [];
+        $params = [];
+
+        //Ownership
+        $where[] = 'user_id = %d';
+        $params[] = get_current_user_id();
+
+        //Search filter
+        if ($search !== '') {
+            $where[] = 'name LIKE %s';
+            $params[] = '%' . $wpdb->esc_like($search) . '%';
+        }
+
+        //Category filter
+        if ($category !== 'all') {
+            $where[] = 'category = %s';
+            $params[] = $category;
+        }
+
+        $sql = "SELECT * FROM {$table}";
+
+        if (!empty($where)) {
+            $sql .= ' WHERE ' . implode(' AND ', $where);
+        }
+
+        $sql .= ' ORDER BY created_at DESC';
+
+        $habits = $wpdb->get_results(
+            $wpdb->prepare($sql, $params)
+        );
+
+        if (empty($habits)) {
+            wp_send_json_success([
+                'rows' => '',
+                'count' => 0,
+            ]);
+        }
+
+        //Render rows
+        $html = '';
+        foreach ($habits as $habit) {
+            $html .= $this->render_habit_row($habit);
+        }
+
+        wp_send_json_success([
+            'rows' => $html,
+            'count' => count($habits),
+        ]);
 
     }
     public function ajax_update_habit()
