@@ -263,9 +263,7 @@ class Habit_Tracker_Admin
                     Cancel
                 </a>
 
-                <a href="<?php echo admin_url('admin.php?page=habit-tracker&delete=' . $habit->habit_id .
-                    '&_wpnonce=' . wp_create_nonce('delete_habit_' . $habit->habit_id))
-                ; ?>" class="button habit-delete" data-id="<?php echo esc_attr($habit->habit_id); ?>"
+                <a href="#" class="button habit-delete" data-id="<?php echo esc_attr($habit->habit_id); ?>"
                     data-name="<?php echo esc_attr($habit->name); ?>">
                     Delete
                 </a>

@@ -40,7 +40,7 @@ jQuery(document).ready(function ($) {
     row.find(".habit-edit").css("display", "inline-block");
   }
 
-  $(".habit-delete").on("click", function (e) {
+  $(document).on("click", ".habit-delete", function (e) {
     e.preventDefault();
     const button = jQuery(this);
     const habitId = button.data("id");
@@ -70,7 +70,7 @@ jQuery(document).ready(function ($) {
     );
   });
 
-  $("#habit-form").on("submit", function (e) {
+  $(document).on("submit", "#habit-form", function (e) {
     e.preventDefault();
 
     const form = this;
