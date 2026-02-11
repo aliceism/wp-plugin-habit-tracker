@@ -354,6 +354,14 @@ class Habit_Tracker_Admin
                 </tbody>
             </table>
 
+            <div id="habit-pagination" style="margin-top: 15px; display: flex; gap: 12px; align-items: center;">
+                <button type="button" class="button" id="habit-prev-page" disabled>
+                    <- Prev</button>
+                        <span id="habit-page-info">
+                            Page 1 of 1</span>
+                        <button type="button" class="button" id="habit-next-page" disabled>
+                            Next -></button>
+            </div>
         </div>
         <?php
     }
