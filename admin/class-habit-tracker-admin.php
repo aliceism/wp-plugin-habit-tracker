@@ -119,72 +119,6 @@ class Habit_Tracker_Admin
         wp_send_json_success(['message' => 'Habit deleted successfully']);
 
     }
-    public function ajax_filter_habits()
-    {
-        check_ajax_referer('habit_ajax_nonce', 'nonce');
-
-        if (!current_user_can('manage_options')) {
-            wp_send_json_error(['message' => "No permission"]);
-        }
-
-        global $wpdb;
-
-        $search = isset($_POST["search"]) ? sanitize_text_field($_POST["search"]) : "";
-        $category = isset($_POST["category"]) ? sanitize_text_field($_POST["category"]) : "all";
-
-        $table = $wpdb->prefix . "habits";
-
-        //Base Query
-        $where = [];
-        $params = [];
-
-        //Ownership
-        $where[] = 'user_id = %d';
-        $params[] = get_current_user_id();
-
-        //Search filter
-        if ($search !== '') {
-            $where[] = 'name LIKE %s';
-            $params[] = '%' . $wpdb->esc_like($search) . '%';
-        }
-
-        //Category filter
-        if ($category !== 'all') {
-            $where[] = 'category = %s';
-            $params[] = $category;
-        }
-
-        $sql = "SELECT * FROM {$table}";
-
-        if (!empty($where)) {
-            $sql .= ' WHERE ' . implode(' AND ', $where);
-        }
-
-        $sql .= ' ORDER BY created_at DESC';
-
-        $habits = $wpdb->get_results(
-            $wpdb->prepare($sql, $params)
-        );
-
-        if (empty($habits)) {
-            wp_send_json_success([
-                'rows' => '',
-                'count' => 0,
-            ]);
-        }
-
-        //Render rows
-        $html = '';
-        foreach ($habits as $habit) {
-            $html .= $this->render_habit_row($habit);
-        }
-
-        wp_send_json_success([
-            'rows' => $html,
-            'count' => count($habits),
-        ]);
-
-    }
     public function ajax_update_habit()
     {
         check_ajax_referer('habit_ajax_nonce', 'nonce');
@@ -224,6 +158,89 @@ class Habit_Tracker_Admin
         }
 
         wp_send_json_success(['message' => 'Habit updated']);
+    }
+    public function ajax_filter_habits()
+    {
+        check_ajax_referer('habit_ajax_nonce', 'nonce');
+
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(['message' => "No permission"]);
+        }
+
+        global $wpdb;
+
+        $search = isset($_POST["search"]) ? sanitize_text_field($_POST["search"]) : "";
+        $category = isset($_POST["category"]) ? sanitize_text_field($_POST["category"]) : "all";
+
+        $page = isset($_POST['page']) ? max(1, intval($_POST['page'])) : 1;
+        $per_page = isset($_POST['per_page']) ? max(1, intval($_POST['per_page'])) : 10;
+
+        $offset = ($page - 1) * $per_page;
+
+        $table = $wpdb->prefix . "habits";
+
+        $where = [];
+        $params = [];
+
+        $where[] = 'user_id = %d';
+        $params[] = get_current_user_id();
+
+        if ($search !== '') {
+            $where[] = 'name LIKE %s';
+            $params[] = '%' . $wpdb->esc_like($search) . '%';
+        }
+
+        if ($category !== 'all') {
+            $where[] = 'category = %s';
+            $params[] = $category;
+        }
+
+        $where_sql = '';
+
+        if (!empty($where)) {
+            $where_sql .= ' WHERE ' . implode(' AND ', $where);
+        }
+
+        $count_sql = "SELECT COUNT(*) FROM {$table}{$where_sql}";
+        $total = (int) $wpdb->get_var(
+            $wpdb->prepare($count_sql, $params)
+        );
+
+        if ($total === 0) {
+            wp_send_json_success([
+                'rows' => '',
+                'page' => 1,
+                'total_pages' => 1,
+                'total' => 0
+            ]);
+        }
+
+        $total_pages = (int) ceil($total / $per_page);
+
+        if ($page > $total_pages) {
+            $page = $total_pages;
+            $offset = ($page - 1) * $per_page;
+        }
+
+        $data_sql = "SELECT * FROM {$table} {$where_sql} ORDER BY created_at DESC LIMIT %d OFFSET %d";
+
+        $params_with_limit = array_merge($params, [$per_page, $offset]);
+
+        $habits = $wpdb->get_results($wpdb->prepare($data_sql, $params_with_limit));
+
+        //Render rows
+        $html = '';
+        foreach ($habits as $habit) {
+            $html .= $this->render_habit_row($habit);
+        }
+
+        wp_send_json_success([
+            'rows' => $html,
+            'page' => $page,
+            'total_pages' => $total_pages,
+            'total' => $total,
+        ]);
+
     }
     public function get_user_habits()
     {

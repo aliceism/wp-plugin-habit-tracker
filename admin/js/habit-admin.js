@@ -1,4 +1,7 @@
 jQuery(document).ready(function ($) {
+  let currentPage = 1;
+  let totalPages = 1;
+  const perPage = 10;
   function showNotice(message, type = "success") {
     const notice = $(`
             <div class="notice notice-${type} is-dismissible">
@@ -11,12 +14,10 @@ jQuery(document).ready(function ($) {
       notice.remove();
     });
   }
-
   function initHabitRowUI(context = document) {
     $(context).find(".habit-save, .habit-cancel").css("display", "none");
     $(context).find(".habit-edit").css("display", "inline-block");
   }
-
   function ensureEmptyState() {
     const tbody = $("#habits-table tbody");
     const rows = tbody.find("tr").not(".empty-row");
@@ -28,7 +29,6 @@ jQuery(document).ready(function ($) {
         </tr>`);
     }
   }
-
   function exitEditMode(row, name, category) {
     row.data("name", name);
     row.data("category", category);
@@ -38,6 +38,58 @@ jQuery(document).ready(function ($) {
 
     row.find(".habit-save, .habit-cancel").css("display", "none");
     row.find(".habit-edit").css("display", "inline-block");
+  }
+  function updatePaginationUI(page, total) {
+    currentPage = page;
+    totalPages = total;
+
+    $("#habit-page-info").text(`Page ${page} of ${total}`);
+
+    $("#habit-prev-page").prop("disabled", page <= 1);
+    $("#habit-next-page").prop("disabled", page >= total);
+  }
+  function runHabitFilter() {
+    const search = $("#habit-search").val().trim();
+    const category = $("#habit-category-filter").val();
+    const tbody = $("#habits-table tbody");
+
+    tbody.html(`
+        <tr>
+            <td colspan="4">Loading...</td>
+        </tr>
+    `);
+
+    $.post(
+      habitTracker.ajax_url,
+      {
+        action: "filter_habits",
+        nonce: habitTracker.nonce,
+        search: search,
+        category: category,
+        page: currentPage,
+        per_page: perPage,
+      },
+      function (response) {
+        if (!response.success) {
+          showNotice(response.data.message || "Filter failed", "error");
+          return;
+        }
+        if (response.data.rows.trim() === "") {
+          tbody.html(`
+                <tr>
+                    <td colspan="4">No habits found.</td>
+                </tr>
+            `);
+          updatePaginationUI(1, 1);
+          return;
+        } else {
+          tbody.html(response.data.rows);
+          initHabitRowUI(tbody);
+
+          updatePaginationUI(response.data.page, response.data.total_pages);
+        }
+      }
+    );
   }
 
   $(document).on("click", ".habit-delete", function (e) {
@@ -176,41 +228,24 @@ jQuery(document).ready(function ($) {
   });
 
   $(document).on("click", "#habit-filter-apply", function () {
-    const search = $("#habit-search").val().trim();
-    const category = $("#habit-category-filter").val();
-
-    const tbody = $("#habits-table tbody");
-
-    tbody.html(`
-        <tr>
-            <td colspan="4">Loading...</td>
-        </tr>
-    `);
-
-    $.post(
-      habitTracker.ajax_url,
-      {
-        action: "filter_habits",
-        nonce: habitTracker.nonce,
-        search: search,
-        category: category,
-      },
-      function (response) {
-        if (!response.success) {
-          showNotice(response.data.message || "Filter failed", "error");
-          return;
-        }
-        if (response.data.rows.trim() === "") {
-          tbody.html(`
-                <tr>
-                    <td colspan="4">No habits found.</td>
-                </tr>
-            `);
-        } else {
-          tbody.html(response.data.rows);
-          initHabitRowUI();
-        }
-      }
-    );
+    currentPage = 1;
+    runHabitFilter();
   });
+
+  $(document).on("click", "#habit-prev-page", function () {
+    if (currentPage <= 1) {
+      return;
+    }
+    currentPage--;
+    runHabitFilter();
+  });
+
+  $(document).on("click", "#habit-next-page", function () {
+    if (currentPage >= totalPages) {
+      return;
+    }
+    currentPage++;
+    runHabitFilter();
+  });
+  runHabitFilter();
 });
