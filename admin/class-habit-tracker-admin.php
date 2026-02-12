@@ -309,8 +309,6 @@ class Habit_Tracker_Admin
     }
     public function render_admin_page()
     {
-        $habits = $this->get_user_habits();
-
         ?>
         <div class='wrap'>
             <h1>Habit Tracker</h1>
@@ -348,17 +346,6 @@ class Habit_Tracker_Admin
 
                 <select id="habit-category-filter">
                     <option value="all">All categories</option>
-
-                    <?php
-                    $categories = array_unique(array_map(fn($h) => $h->category, $habits));
-                    foreach ($categories as $cat):
-                        if (empty($cat))
-                            continue;
-                        ?>
-                        <option value="<?php echo esc_attr($cat); ?>">
-                            <?php echo esc_html($cat); ?>
-                        </option>
-                    <?php endforeach; ?>
                 </select>
 
                 <select id="habit-sort">
@@ -382,17 +369,10 @@ class Habit_Tracker_Admin
                         <th>Actions</th>
                     </tr>
                 </thead>
-                <tbody id="habits-table-body">
-                    <?php if (!empty($habits)): ?>
-                        <?php foreach ($habits as $habit): ?>
-                            <?php echo $this->render_habit_row($habit); ?>
-                        <?php endforeach; ?>
-                    <?php else: ?>
-                        <tr>
-                            <td colspan="3">No habits added yet.
-                            </td>
-                        </tr>
-                    <?php endif; ?>
+                <tbody>
+                    <tr>
+                        <td colspan="4">Loading...</td>
+                    </tr>
                 </tbody>
             </table>
 
