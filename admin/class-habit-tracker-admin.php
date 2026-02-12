@@ -343,6 +343,13 @@ class Habit_Tracker_Admin
                     <?php endforeach; ?>
                 </select>
 
+                <select id="habit-sort">
+                    <option value="newest">Newest first</option>
+                    <option value="oldest">Oldest first</option>
+                    <option value="name_asc">Name A-Z</option>
+                    <option value="name_desc">Name Z-A</option>
+                </select>
+
                 <button type="button" class="button" id="habit-filter-apply">
                     Apply
                 </button>
