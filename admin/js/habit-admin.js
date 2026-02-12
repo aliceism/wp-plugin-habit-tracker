@@ -2,6 +2,9 @@ jQuery(document).ready(function ($) {
   let currentPage = 1;
   let totalPages = 1;
   const perPage = 10;
+
+  let sortBy = "newest";
+
   function showNotice(message, type = "success") {
     const notice = $(`
             <div class="notice notice-${type} is-dismissible">
@@ -68,6 +71,7 @@ jQuery(document).ready(function ($) {
         category: category,
         page: currentPage,
         per_page: perPage,
+        sort: sortBy,
       },
       function (response) {
         if (!response.success) {
@@ -229,6 +233,7 @@ jQuery(document).ready(function ($) {
 
   $(document).on("click", "#habit-filter-apply", function () {
     currentPage = 1;
+    sortBy = $("#habit-sort").val() || "newest";
     runHabitFilter();
   });
 
