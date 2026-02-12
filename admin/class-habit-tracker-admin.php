@@ -172,12 +172,30 @@ class Habit_Tracker_Admin
         $search = isset($_POST["search"]) ? sanitize_text_field($_POST["search"]) : "";
         $category = isset($_POST["category"]) ? sanitize_text_field($_POST["category"]) : "all";
 
+        $sort = isset($_POST["sort"]) ? sanitize_text_field($_POST["sort"]) : "newest";
+
         $page = isset($_POST['page']) ? max(1, intval($_POST['page'])) : 1;
         $per_page = isset($_POST['per_page']) ? max(1, intval($_POST['per_page'])) : 10;
 
         $offset = ($page - 1) * $per_page;
 
         $table = $wpdb->prefix . "habits";
+
+        $order_by = "created_at DESC";
+
+        switch ($sort) {
+            case "oldest":
+                $order_by = "created_at ASC";
+                break;
+            case "name_asc":
+                $order_by = "name ASC";
+                break;
+            case "name_desc":
+                $order_by = "name DESC";
+                break;
+            case "newest":
+                break;
+        }
 
         $where = [];
         $params = [];
@@ -222,7 +240,7 @@ class Habit_Tracker_Admin
             $offset = ($page - 1) * $per_page;
         }
 
-        $data_sql = "SELECT * FROM {$table} {$where_sql} ORDER BY created_at DESC LIMIT %d OFFSET %d";
+        $data_sql = "SELECT * FROM {$table} {$where_sql} ORDER BY {$order_by} LIMIT %d OFFSET %d";
 
         $params_with_limit = array_merge($params, [$per_page, $offset]);
 

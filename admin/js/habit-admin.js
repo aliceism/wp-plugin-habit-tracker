@@ -252,5 +252,4 @@ jQuery(document).ready(function ($) {
     currentPage++;
     runHabitFilter();
   });
-  runHabitFilter();
 });
