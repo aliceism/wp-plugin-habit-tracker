@@ -219,6 +219,16 @@ class Habit_Tracker_Admin
             $where_sql .= ' WHERE ' . implode(' AND ', $where);
         }
 
+        $categories = $wpdb->get_col(
+            $wpdb->prepare(
+                "SELECT DISTINCT category
+                From {$table}
+                WHERE user_id = %d
+                And category <> ''
+                ORDER BY category ASC",
+                get_current_user_id()
+            )
+        );
         $count_sql = "SELECT COUNT(*) FROM {$table}{$where_sql}";
         $total = (int) $wpdb->get_var(
             $wpdb->prepare($count_sql, $params)
@@ -229,7 +239,8 @@ class Habit_Tracker_Admin
                 'rows' => '',
                 'page' => 1,
                 'total_pages' => 1,
-                'total' => 0
+                'total' => 0,
+                'categories' => $categories,
             ]);
         }
 
@@ -257,6 +268,7 @@ class Habit_Tracker_Admin
             'page' => $page,
             'total_pages' => $total_pages,
             'total' => $total,
+            'categories' => $categories,
         ]);
 
     }

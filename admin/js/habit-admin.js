@@ -4,6 +4,7 @@ jQuery(document).ready(function ($) {
   const perPage = 10;
 
   let sortBy = "newest";
+  let categoriesLoaded = false;
 
   function showNotice(message, type = "success") {
     const notice = $(`
@@ -41,6 +42,17 @@ jQuery(document).ready(function ($) {
 
     row.find(".habit-save, .habit-cancel").css("display", "none");
     row.find(".habit-edit").css("display", "inline-block");
+  }
+  function populateCategoryFilter(categories) {
+    if (categoriesLoaded) return;
+
+    const select = $("#habit-category-filter");
+
+    select.html('<option value="all">All categories</option>');
+    categories.forEach(function (cat) {
+      select.append(`<option value="${cat}">${cat}</option>`);
+    });
+    categoriesLoaded = true;
   }
   function updatePaginationUI(page, total) {
     currentPage = page;
@@ -84,12 +96,17 @@ jQuery(document).ready(function ($) {
                     <td colspan="4">No habits found.</td>
                 </tr>
             `);
+          if (response.data.categories) {
+            populateCategoryFilter(response.data.categories);
+          }
           updatePaginationUI(1, 1);
           return;
         } else {
           tbody.html(response.data.rows);
           initHabitRowUI(tbody);
-
+          if (response.data.categories) {
+            populateCategoryFilter(response.data.categories);
+          }
           updatePaginationUI(response.data.page, response.data.total_pages);
         }
       }
