@@ -20,13 +20,13 @@ The `habitlab` theme owns:
 
 ### Admin Flow
 
-1. Admin creates and manages shared habit templates.
-2. Shared templates become visible on the `Habits` page.
+1. Admin creates and manages shared habits.
+2. Shared habits become visible on the `Habits` page.
 
 ### User Flow
 
-1. User browses shared habit templates on `Habits`.
-2. User adds a template habit to their dashboard.
+1. User browses shared habits on `Habits`.
+2. User adds a shared habit to their dashboard.
 3. User can also create a custom habit that belongs only to them.
 4. `Dashboard` shows only the current user's active dashboard habits.
 5. User checks habits daily.
@@ -36,7 +36,7 @@ The `habitlab` theme owns:
 
 The plugin should use three custom tables:
 
-- `{$wpdb->prefix}habit_tracker_templates`
+- `{$wpdb->prefix}habit_tracker_habits`
 - `{$wpdb->prefix}habit_tracker_user_habits`
 - `{$wpdb->prefix}habit_tracker_checkins`
 
@@ -44,7 +44,7 @@ No summary tables are needed for MVP. Weekly and monthly progress should be deri
 
 WordPress plugins should not rely on MySQL foreign keys for correctness. Ownership and integrity should be enforced in PHP services and repositories.
 
-## Table 1: Habit Templates
+## Table 1: Shared Habits
 
 Shared habits managed by admins and offered as reusable options on the `Habits` page.
 
@@ -64,25 +64,26 @@ created_at DATETIME NOT NULL
 updated_at DATETIME NOT NULL
 PRIMARY KEY (id)
 UNIQUE KEY slug (slug)
-KEY is_active_sort (is_active, sort_order, name)
+KEY is_active_sort (is_active, sort_order)
 KEY category (category)
+KEY name (name)
 ```
 
 ### Notes
 
-- `slug` gives each template a stable identity.
+- `slug` gives each shared habit a stable identity.
 - `default_target_days_mask` is a 7-bit mask for weekdays.
-- For MVP, all templates should be created as `daily` habits with `default_target_count = 1`.
+- For MVP, all shared habits should be created as `daily` habits with `default_target_count = 1`.
 - `sort_order` allows intentional ordering on the `Habits` page.
 
 ## Table 2: User Habits
 
-Concrete habits shown on a user's dashboard. A row can come from an admin template or be fully custom.
+Concrete habits shown on a user's dashboard. A row can come from an admin-created shared habit or be fully custom.
 
 ```sql
 id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT
 user_id BIGINT UNSIGNED NOT NULL
-template_id BIGINT UNSIGNED NULL
+habit_id BIGINT UNSIGNED NULL
 source_type VARCHAR(20) NOT NULL
 name VARCHAR(191) NOT NULL
 category VARCHAR(100) NOT NULL DEFAULT ''
@@ -98,22 +99,22 @@ created_at DATETIME NOT NULL
 updated_at DATETIME NOT NULL
 archived_at DATETIME NULL
 PRIMARY KEY (id)
-UNIQUE KEY user_template_unique (user_id, template_id)
+UNIQUE KEY user_habit_unique (user_id, habit_id)
 KEY user_active_position (user_id, is_active, position, id)
 KEY user_category (user_id, category)
-KEY template_id (template_id)
+KEY habit_id (habit_id)
 KEY source_type (source_type)
 ```
 
 ### Notes
 
 - `source_type` values:
-  - `template`
+  - `habit`
   - `custom`
-- `template_id` is nullable because custom habits have no template origin.
-- `name`, `category`, and `description` are copied onto the user habit so the dashboard remains stable even if a template changes later.
-- `user_template_unique` prevents a user from adding the same shared template more than once.
-- If a user re-adds an archived template habit, the service should reactivate the existing row instead of inserting a duplicate.
+- `habit_id` is nullable because custom habits have no shared habit origin.
+- `name`, `category`, and `description` are copied onto the user habit so the dashboard remains stable even if a shared habit changes later.
+- `user_habit_unique` prevents a user from adding the same shared habit more than once.
+- If a user re-adds an archived shared habit, the service should reactivate the existing row instead of inserting a duplicate.
 - `position` is reserved for dashboard ordering.
 
 ## Table 3: Check-ins
@@ -167,9 +168,9 @@ For MVP, all created habits should default to `127`.
 
 ## Access Rules
 
-- Admin manages only `habit_tracker_templates`.
+- Admin manages only `habit_tracker_habits`.
 - User can create custom rows only in `habit_tracker_user_habits` where `user_id = current user`.
-- User can add shared templates to their dashboard, which creates or reactivates a row in `habit_tracker_user_habits`.
+- User can add shared habits to their dashboard, which creates or reactivates a row in `habit_tracker_user_habits`.
 - User can check or uncheck only their own `user_habits`.
 - Progress queries must always be filtered by the current user.
 
@@ -179,9 +180,9 @@ For MVP, all created habits should default to `127`.
 
 Should display:
 
-- active shared templates not yet added by the current user
+- active shared habits not yet added by the current user
 - current user's active custom habits
-- current user's active template-based habits, marked as already added
+- current user's active shared-habit-based rows, marked as already added
 
 ### Dashboard Page
 
@@ -253,10 +254,10 @@ This is enough to support:
 ## Implementation Order
 
 1. Create activation and migration code for the three tables.
-2. Build repositories for templates, user habits, and check-ins.
-3. Add admin CRUD for shared templates.
+2. Build repositories for shared habits, user habits, and check-ins.
+3. Add admin CRUD for shared habits.
 4. Add frontend `Habits` shortcode with:
-   - template listing
+   - shared habit listing
    - add-to-dashboard action
    - custom habit creation
 5. Add frontend `Dashboard` shortcode with daily check-in actions.
