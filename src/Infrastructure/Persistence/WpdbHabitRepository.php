@@ -38,6 +38,14 @@ final class WpdbHabitRepository
         return is_array($results) ? $results : [];
     }
 
+    public function findActiveForFrontend(): array
+    {
+        $sql = "SELECT * FROM {$this->habits_table} WHERE is_active = 1 ORDER BY sort_order ASC, name ASC";
+        $results = $this->wpdb->get_results($sql);
+
+        return is_array($results) ? $results : [];
+    }
+
     public function findById(int $habit_id): ?object
     {
         if ($habit_id <= 0) {
