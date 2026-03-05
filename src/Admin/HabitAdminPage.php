@@ -316,10 +316,7 @@ final class HabitAdminPage
             $this->redirect('habit-save-failed');
         }
 
-        $this->redirect(
-            'habit-created',
-            ['action' => 'edit', 'habit_id' => $created_habit_id]
-        );
+        $this->redirect('habit-created');
     }
 
     public function handleToggle(): void
