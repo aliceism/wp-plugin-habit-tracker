@@ -1,0 +1,176 @@
+.habit-tracker-habits {
+    display: grid;
+    gap: 1.5rem;
+}
+
+.habit-tracker-block > :last-child {
+    margin-bottom: 0;
+}
+
+.habit-tracker-notice {
+    margin: 0;
+    padding: 0.9rem 1rem;
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    border-radius: 12px;
+}
+
+.habit-tracker-notice p {
+    margin: 0;
+}
+
+.habit-tracker-notice--success {
+    border-color: rgba(34, 255, 136, 0.28);
+    background: rgba(10, 57, 33, 0.45);
+    color: #86efac;
+}
+
+.habit-tracker-notice--error {
+    border-color: rgba(236, 72, 153, 0.28);
+    background: rgba(62, 14, 39, 0.45);
+    color: #f9a8d4;
+}
+
+.habit-tracker-notice--info {
+    border-color: rgba(59, 130, 246, 0.28);
+    background: rgba(16, 33, 66, 0.45);
+    color: #bfdbfe;
+}
+
+.habit-tracker-habits__stack {
+    margin-top: 1rem;
+}
+
+.habit-tracker-habits__stack li {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+    padding-bottom: 0.6rem;
+}
+
+.habit-tracker-habits__stack.app-list li {
+    padding-left: 0;
+}
+
+.habit-tracker-habits__stack.app-list li::before {
+    display: none;
+}
+
+.habit-tracker-habits__stack li:last-child {
+    border-bottom: 0;
+    padding-bottom: 0;
+}
+
+.habit-tracker-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 26px;
+    padding: 0.2rem 0.6rem;
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    border-radius: 999px;
+    background: rgba(15, 23, 42, 0.6);
+    color: var(--text-secondary, #94a3b8);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.habit-tracker-pill--active {
+    border-color: rgba(34, 255, 136, 0.36);
+    color: #86efac;
+}
+
+.habit-tracker-form {
+    display: grid;
+    gap: 0.9rem;
+    margin-top: 1rem;
+}
+
+.habit-tracker-field {
+    display: grid;
+    gap: 0.45rem;
+}
+
+.habit-tracker-field label {
+    color: var(--text-secondary, #94a3b8);
+    font-size: 0.92rem;
+    font-weight: 500;
+}
+
+.habit-tracker-field input,
+.habit-tracker-field textarea {
+    width: 100%;
+    min-height: 46px;
+    padding: 0.75rem 0.9rem;
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    border-radius: 12px;
+    background: rgba(7, 11, 20, 0.88);
+    color: var(--text-primary, #e5e7eb);
+    font: inherit;
+}
+
+.habit-tracker-field textarea {
+    min-height: 110px;
+    resize: vertical;
+}
+
+.habit-tracker-field input:focus-visible,
+.habit-tracker-field textarea:focus-visible {
+    outline: 2px solid rgba(59, 130, 246, 0.2);
+    border-color: rgba(59, 130, 246, 0.55);
+    box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.12);
+}
+
+.habit-tracker-shared-grid {
+    display: grid;
+    gap: 1rem;
+    margin-top: 1rem;
+    grid-template-columns: 1fr;
+}
+
+.habit-tracker-shared-item {
+    display: grid;
+    gap: 0.6rem;
+    padding: 1rem;
+    border: 1px solid rgba(148, 163, 184, 0.14);
+    border-radius: 12px;
+    background: rgba(15, 23, 42, 0.45);
+}
+
+.habit-tracker-shared-item h4 {
+    margin: 0;
+    font-size: 1.1rem;
+}
+
+.habit-tracker-shared-item p {
+    margin: 0;
+}
+
+.habit-tracker-shared-category {
+    color: var(--text-muted, #64748b);
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.habit-tracker-shared-actions {
+    margin-top: 0.25rem;
+}
+
+.habit-tracker-shared-actions .btn {
+    width: 100%;
+}
+
+.habit-tracker-logged-out .btn {
+    margin-top: 1rem;
+}
+
+@media (min-width: 768px) {
+    .habit-tracker-shared-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
