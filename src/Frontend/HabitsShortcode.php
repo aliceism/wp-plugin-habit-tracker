@@ -19,6 +19,10 @@ final class HabitsShortcode
     private const ADD_SHARED_ACTION = 'habit_tracker_add_shared_habit';
     private const ADD_CUSTOM_ACTION = 'habit_tracker_add_custom_habit';
     private const NOTICE_QUERY_KEY = 'ht_notice';
+    private const CATEGORY_MIND = 'mind';
+    private const CATEGORY_BODY = 'body';
+    private const CATEGORY_PRODUCTIVITY = 'productivity';
+    private const CATEGORY_LIFE = 'life';
 
     private WpdbHabitRepository $habits;
 
@@ -62,7 +66,6 @@ final class HabitsShortcode
 
             <?php $this->renderStackSection($context['user_dashboard_habits']); ?>
             <?php $this->renderSharedSection($context['shared_habits'], $context['active_shared_habit_ids'], $context['redirect_url']); ?>
-            <?php $this->renderCustomSection($context['redirect_url']); ?>
         </div>
         <?php
 
@@ -253,16 +256,18 @@ final class HabitsShortcode
     private function renderStackSection(array $user_dashboard_habits): void
     {
         ?>
-        <section class="habit-tracker-block">
-            <p class="app-card__eyebrow"><?php esc_html_e('Dashboard Stack', 'habit-tracker'); ?></p>
-            <h3><?php esc_html_e('Your Active Habits', 'habit-tracker'); ?></h3>
+        <section class="habit-tracker-block habit-tracker-block--stack">
+            <div class="habit-tracker-block__header">
+                <p class="app-card__eyebrow"><?php esc_html_e('Dashboard Stack', 'habit-tracker'); ?></p>
+                <h3><?php esc_html_e('Your Active Habits', 'habit-tracker'); ?></h3>
+            </div>
             <?php if ($user_dashboard_habits === []) : ?>
-                <p><?php esc_html_e('No habits in your dashboard yet. Add one from the shared list or create a custom habit.', 'habit-tracker'); ?></p>
+                <p class="habit-tracker-empty-state"><?php esc_html_e('No habits in your dashboard yet. Add one from the shared list or create a custom habit.', 'habit-tracker'); ?></p>
             <?php else : ?>
-                <ul class="habit-tracker-habits__stack app-list">
+                <ul class="habit-tracker-habits__stack">
                     <?php foreach ($user_dashboard_habits as $dashboard_habit) : ?>
-                        <li>
-                            <span><?php echo esc_html((string) $dashboard_habit->name); ?></span>
+                        <li class="habit-tracker-stack-item">
+                            <span class="habit-tracker-stack-item__name"><?php echo esc_html((string) $dashboard_habit->name); ?></span>
                             <span class="habit-tracker-pill">
                                 <?php
                                 echo esc_html(
@@ -282,53 +287,160 @@ final class HabitsShortcode
 
     private function renderSharedSection(array $shared_habits, array $active_shared_habit_ids, string $redirect_url): void
     {
+        $grouped_habits = $this->groupHabitsByPresetCategory($shared_habits);
+        $categories = [
+            self::CATEGORY_MIND => __('Mind', 'habit-tracker'),
+            self::CATEGORY_BODY => __('Body', 'habit-tracker'),
+            self::CATEGORY_PRODUCTIVITY => __('Productivity', 'habit-tracker'),
+            self::CATEGORY_LIFE => __('Life', 'habit-tracker'),
+        ];
+
         ?>
-        <section class="habit-tracker-block">
-            <p class="app-card__eyebrow"><?php esc_html_e('Shared Habits', 'habit-tracker'); ?></p>
-            <h3><?php esc_html_e('Pick Habits For Your Dashboard', 'habit-tracker'); ?></h3>
-            <?php if ($shared_habits === []) : ?>
-                <p><?php esc_html_e('No shared habits are available yet. Ask an admin to add some habits first.', 'habit-tracker'); ?></p>
-            <?php else : ?>
-                <div class="habit-tracker-shared-grid">
-                    <?php foreach ($shared_habits as $shared_habit) : ?>
-                        <?php $is_added = isset($active_shared_habit_ids[(int) $shared_habit->id]); ?>
-                        <article class="habit-tracker-shared-item">
-                            <h4><?php echo esc_html((string) $shared_habit->name); ?></h4>
-                            <p class="habit-tracker-shared-category">
-                                <?php
-                                echo esc_html(
-                                    (string) $shared_habit->category !== ''
-                                        ? (string) $shared_habit->category
-                                        : __('Uncategorized', 'habit-tracker')
-                                );
-                                ?>
-                            </p>
+        <section class="habit-tracker-block habit-tracker-block--shared">
+            <div class="habit-tracker-block__header">
+                <p class="app-card__eyebrow"><?php esc_html_e('Habits', 'habit-tracker'); ?></p>
+                <h3><?php esc_html_e('Pick Habits For Your Lab', 'habit-tracker'); ?></h3>
+            </div>
+            <p class="habit-tracker-block__intro"><?php esc_html_e('Choose a category to open the habits list for that area.', 'habit-tracker'); ?></p>
 
-                            <?php if ((string) $shared_habit->description !== '') : ?>
-                                <p><?php echo esc_html((string) $shared_habit->description); ?></p>
-                            <?php endif; ?>
+            <div class="habit-tracker-category-grid">
+                <?php foreach ($categories as $category_key => $category_label) : ?>
+                    <?php $modal_id = 'habit-tracker-modal-' . $category_key; ?>
+                    <button
+                        type="button"
+                        class="habit-tracker-category-card habit-tracker-category-card--<?php echo esc_attr($category_key); ?>"
+                        data-ht-open-modal="<?php echo esc_attr($modal_id); ?>"
+                    >
+                        <span class="habit-tracker-category-card__label"><?php echo esc_html($category_label); ?></span>
+                        <span class="habit-tracker-category-card__meta">
+                            <?php
+                            printf(
+                                esc_html(_n('%d habit', '%d habits', count($grouped_habits[$category_key]), 'habit-tracker')),
+                                count($grouped_habits[$category_key])
+                            );
+                            ?>
+                        </span>
+                        <span class="habit-tracker-category-card__cta"><?php esc_html_e('Open list', 'habit-tracker'); ?></span>
+                    </button>
+                <?php endforeach; ?>
 
-                            <div class="habit-tracker-shared-actions">
-                                <?php if ($is_added) : ?>
-                                    <span class="habit-tracker-pill habit-tracker-pill--active">
-                                        <?php esc_html_e('Already Added', 'habit-tracker'); ?>
-                                    </span>
-                                <?php else : ?>
-                                    <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
-                                        <input type="hidden" name="action" value="<?php echo esc_attr(self::ADD_SHARED_ACTION); ?>">
-                                        <input type="hidden" name="habit_id" value="<?php echo esc_attr((string) $shared_habit->id); ?>">
-                                        <input type="hidden" name="redirect_to" value="<?php echo esc_url($redirect_url); ?>">
-                                        <?php wp_nonce_field(self::ADD_SHARED_ACTION); ?>
-                                        <button type="submit" class="btn btn-ghost">
-                                            <?php esc_html_e('Add to Dashboard', 'habit-tracker'); ?>
-                                        </button>
-                                    </form>
-                                <?php endif; ?>
-                            </div>
-                        </article>
-                    <?php endforeach; ?>
+                <?php $custom_modal_id = 'habit-tracker-modal-custom'; ?>
+                <button type="button" class="habit-tracker-category-card habit-tracker-category-card--custom" data-ht-open-modal="<?php echo esc_attr($custom_modal_id); ?>">
+                    <span class="habit-tracker-category-card__label"><?php esc_html_e('Custom Habit', 'habit-tracker'); ?></span>
+                    <span class="habit-tracker-category-card__cta"><?php esc_html_e('Create now', 'habit-tracker'); ?></span>
+                </button>
+            </div>
+
+            <?php foreach ($categories as $category_key => $category_label) : ?>
+                <?php
+                $modal_id = 'habit-tracker-modal-' . $category_key;
+                $modal_title_id = $modal_id . '-title';
+                ?>
+                <div class="habit-tracker-modal" data-ht-modal="<?php echo esc_attr($modal_id); ?>" hidden>
+                    <div class="habit-tracker-modal__backdrop" data-ht-close-modal></div>
+                    <div
+                        class="habit-tracker-modal__panel habit-tracker-modal__panel--<?php echo esc_attr($category_key); ?>"
+                        role="dialog"
+                        aria-modal="true"
+                        aria-labelledby="<?php echo esc_attr($modal_title_id); ?>"
+                    >
+                        <div class="habit-tracker-modal__header">
+                            <p class="app-card__eyebrow"><?php echo esc_html($category_label); ?></p>
+                            <h4 id="<?php echo esc_attr($modal_title_id); ?>"><?php echo esc_html(sprintf(__('%s Habits', 'habit-tracker'), $category_label)); ?></h4>
+                            <button type="button" class="habit-tracker-modal__close" data-ht-close-modal aria-label="<?php esc_attr_e('Close', 'habit-tracker'); ?>">
+                                &times;
+                            </button>
+                        </div>
+
+                        <?php if ($grouped_habits[$category_key] === []) : ?>
+                            <p><?php esc_html_e('No habits in this category yet.', 'habit-tracker'); ?></p>
+                        <?php else : ?>
+                            <ul class="habit-tracker-modal-list">
+                                <?php foreach ($grouped_habits[$category_key] as $shared_habit) : ?>
+                                    <?php $is_added = isset($active_shared_habit_ids[(int) $shared_habit->id]); ?>
+                                    <li class="habit-tracker-modal-list__item">
+                                        <div class="habit-tracker-modal-list__content">
+                                            <h4><?php echo esc_html((string) $shared_habit->name); ?></h4>
+                                            <?php if ((string) $shared_habit->description !== '') : ?>
+                                                <p><?php echo esc_html((string) $shared_habit->description); ?></p>
+                                            <?php endif; ?>
+                                        </div>
+
+                                        <div class="habit-tracker-modal-list__action">
+                                            <?php if ($is_added) : ?>
+                                                <span class="habit-tracker-pill habit-tracker-pill--active">
+                                                    <?php esc_html_e('Already Added', 'habit-tracker'); ?>
+                                                </span>
+                                            <?php else : ?>
+                                                <form class="habit-tracker-inline-form" method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
+                                                    <input type="hidden" name="action" value="<?php echo esc_attr(self::ADD_SHARED_ACTION); ?>">
+                                                    <input type="hidden" name="habit_id" value="<?php echo esc_attr((string) $shared_habit->id); ?>">
+                                                    <input type="hidden" name="redirect_to" value="<?php echo esc_url($redirect_url); ?>">
+                                                    <?php wp_nonce_field(self::ADD_SHARED_ACTION); ?>
+                                                    <button
+                                                        type="submit"
+                                                        class="btn btn-ghost habit-tracker-add-btn"
+                                                        aria-label="<?php esc_attr_e('Add to Dashboard', 'habit-tracker'); ?>"
+                                                        title="<?php esc_attr_e('Add to Dashboard', 'habit-tracker'); ?>"
+                                                    >
+                                                        +
+                                                    </button>
+                                                </form>
+                                            <?php endif; ?>
+                                        </div>
+                                    </li>
+                                <?php endforeach; ?>
+                            </ul>
+                        <?php endif; ?>
+                    </div>
                 </div>
-            <?php endif; ?>
+            <?php endforeach; ?>
+
+            <?php $custom_modal_title_id = 'habit-tracker-modal-custom-title'; ?>
+            <div class="habit-tracker-modal" data-ht-modal="<?php echo esc_attr($custom_modal_id); ?>" hidden>
+                <div class="habit-tracker-modal__backdrop" data-ht-close-modal></div>
+                <div
+                    class="habit-tracker-modal__panel habit-tracker-modal__panel--custom"
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="<?php echo esc_attr($custom_modal_title_id); ?>"
+                >
+                    <div class="habit-tracker-modal__header">
+                        <p class="app-card__eyebrow"><?php esc_html_e('Custom Habit', 'habit-tracker'); ?></p>
+                        <h4 id="<?php echo esc_attr($custom_modal_title_id); ?>"><?php esc_html_e('Create One Just For You', 'habit-tracker'); ?></h4>
+                        <button type="button" class="habit-tracker-modal__close" data-ht-close-modal aria-label="<?php esc_attr_e('Close', 'habit-tracker'); ?>">
+                            &times;
+                        </button>
+                    </div>
+
+                    <p class="habit-tracker-block__intro"><?php esc_html_e('Custom habits are private to your account and appear directly in your dashboard.', 'habit-tracker'); ?></p>
+
+                    <form class="habit-tracker-form" method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
+                        <input type="hidden" name="action" value="<?php echo esc_attr(self::ADD_CUSTOM_ACTION); ?>">
+                        <input type="hidden" name="redirect_to" value="<?php echo esc_url($redirect_url); ?>">
+                        <?php wp_nonce_field(self::ADD_CUSTOM_ACTION); ?>
+
+                        <div class="habit-tracker-field">
+                            <label for="habit-tracker-custom-name"><?php esc_html_e('Name', 'habit-tracker'); ?></label>
+                            <input id="habit-tracker-custom-name" type="text" name="name" required maxlength="191">
+                        </div>
+
+                        <div class="habit-tracker-field">
+                            <label for="habit-tracker-custom-category"><?php esc_html_e('Category', 'habit-tracker'); ?></label>
+                            <input id="habit-tracker-custom-category" type="text" name="category" maxlength="100">
+                        </div>
+
+                        <div class="habit-tracker-field">
+                            <label for="habit-tracker-custom-description"><?php esc_html_e('Description', 'habit-tracker'); ?></label>
+                            <textarea id="habit-tracker-custom-description" name="description" rows="3"></textarea>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary">
+                            <?php esc_html_e('Add Custom Habit', 'habit-tracker'); ?>
+                        </button>
+                    </form>
+                </div>
+            </div>
         </section>
         <?php
     }
@@ -336,10 +448,12 @@ final class HabitsShortcode
     private function renderCustomSection(string $redirect_url): void
     {
         ?>
-        <section class="habit-tracker-block">
-            <p class="app-card__eyebrow"><?php esc_html_e('Custom Habit', 'habit-tracker'); ?></p>
-            <h3><?php esc_html_e('Create One Just For You', 'habit-tracker'); ?></h3>
-            <p><?php esc_html_e('Custom habits are private to your account and appear directly in your dashboard.', 'habit-tracker'); ?></p>
+        <section class="habit-tracker-block habit-tracker-block--custom">
+            <div class="habit-tracker-block__header">
+                <p class="app-card__eyebrow"><?php esc_html_e('Custom Habit', 'habit-tracker'); ?></p>
+                <h3><?php esc_html_e('Create One Just For You', 'habit-tracker'); ?></h3>
+            </div>
+            <p class="habit-tracker-block__intro"><?php esc_html_e('Custom habits are private to your account and appear directly in your dashboard.', 'habit-tracker'); ?></p>
 
             <form class="habit-tracker-form" method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
                 <input type="hidden" name="action" value="<?php echo esc_attr(self::ADD_CUSTOM_ACTION); ?>">
@@ -422,11 +536,30 @@ final class HabitsShortcode
 
     private function enqueueAssets(): void
     {
+        $style_path = HABIT_TRACKER_PATH . 'assets/css/frontend.css';
+        $script_path = HABIT_TRACKER_PATH . 'assets/js/frontend.js';
+
+        $style_version = is_readable($style_path)
+            ? (string) filemtime($style_path)
+            : HABIT_TRACKER_VERSION;
+
+        $script_version = is_readable($script_path)
+            ? (string) filemtime($script_path)
+            : HABIT_TRACKER_VERSION;
+
         wp_enqueue_style(
             'habit-tracker-frontend',
             HABIT_TRACKER_URL . 'assets/css/frontend.css',
             [],
-            HABIT_TRACKER_VERSION
+            $style_version
+        );
+
+        wp_enqueue_script(
+            'habit-tracker-frontend',
+            HABIT_TRACKER_URL . 'assets/js/frontend.js',
+            [],
+            $script_version,
+            true
         );
     }
 
@@ -476,5 +609,27 @@ final class HabitsShortcode
             'active_shared_habit_ids' => array_flip($this->user_habits->getActiveSharedHabitIdsByUser($user_id)),
             'redirect_url' => $this->getCurrentUrl(),
         ];
+    }
+
+    private function groupHabitsByPresetCategory(array $shared_habits): array
+    {
+        $grouped = [
+            self::CATEGORY_MIND => [],
+            self::CATEGORY_BODY => [],
+            self::CATEGORY_PRODUCTIVITY => [],
+            self::CATEGORY_LIFE => [],
+        ];
+
+        foreach ($shared_habits as $shared_habit) {
+            $category_key = sanitize_key((string) $shared_habit->category);
+
+            if (! isset($grouped[$category_key])) {
+                $category_key = self::CATEGORY_LIFE;
+            }
+
+            $grouped[$category_key][] = $shared_habit;
+        }
+
+        return $grouped;
     }
 }
