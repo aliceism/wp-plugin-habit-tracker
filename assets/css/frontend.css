@@ -263,28 +263,69 @@ body.page-template-page-habits-php .app-page-header__subtitle {
 }
 
 .habit-tracker-stack-item {
+    --ht-stack-accent-rgb: 148, 163, 184;
+    position: relative;
     display: flex;
     align-items: center;
     gap: 0.75rem;
     min-height: 58px;
-    padding: 0.75rem 0.85rem;
-    border: 1px solid rgba(148, 163, 184, 0.16);
+    padding: 0.75rem 0.85rem 0.75rem 1rem;
+    border: 1px solid rgba(var(--ht-stack-accent-rgb), 0.26);
     border-radius: 12px;
     background:
         linear-gradient(180deg, rgba(15, 23, 42, 0.66), rgba(10, 16, 28, 0.66));
-    transition: border-color 0.3s ease, transform 0.3s ease, box-shadow 0.3s ease;
+    box-shadow: 0 0 0 1px rgba(var(--ht-stack-accent-rgb), 0.06) inset;
+    transition: border-color 0.3s ease, transform 0.3s ease, box-shadow 0.3s ease, background-color 0.3s ease;
+}
+
+.habit-tracker-stack-item::before {
+    content: "";
+    position: absolute;
+    left: 0.58rem;
+    top: 50%;
+    width: 0.34rem;
+    height: 1.95rem;
+    border-radius: 999px;
+    background: rgba(var(--ht-stack-accent-rgb), 0.95);
+    box-shadow: 0 0 14px rgba(var(--ht-stack-accent-rgb), 0.26);
+    transform: translateY(-50%);
 }
 
 .habit-tracker-stack-item:hover,
 .habit-tracker-stack-item:focus-within {
-    border-color: rgba(59, 130, 246, 0.44);
-    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.24);
+    border-color: rgba(var(--ht-stack-accent-rgb), 0.56);
+    box-shadow:
+        0 10px 20px rgba(0, 0, 0, 0.24),
+        0 0 18px rgba(var(--ht-stack-accent-rgb), 0.18);
     transform: translateY(-1px);
 }
 
 .habit-tracker-stack-item__name {
+    flex: 1 1 auto;
+    min-width: 0;
+    margin-left: 0.35rem;
     color: var(--ht-text-primary);
     font-weight: 600;
+}
+
+.habit-tracker-stack-item--mind {
+    --ht-stack-accent-rgb: 59, 130, 246;
+}
+
+.habit-tracker-stack-item--body {
+    --ht-stack-accent-rgb: 192, 38, 211;
+}
+
+.habit-tracker-stack-item--productivity {
+    --ht-stack-accent-rgb: 236, 72, 153;
+}
+
+.habit-tracker-stack-item--life {
+    --ht-stack-accent-rgb: 255, 176, 32;
+}
+
+.habit-tracker-stack-item--custom {
+    --ht-stack-accent-rgb: 34, 255, 136;
 }
 
 .habit-tracker-pill {

@@ -23,6 +23,7 @@ final class HabitsShortcode
     private const CATEGORY_BODY = 'body';
     private const CATEGORY_PRODUCTIVITY = 'productivity';
     private const CATEGORY_LIFE = 'life';
+    private const CATEGORY_CUSTOM = 'custom';
 
     private WpdbHabitRepository $habits;
 
@@ -266,17 +267,11 @@ final class HabitsShortcode
             <?php else : ?>
                 <ul class="habit-tracker-habits__stack">
                     <?php foreach ($user_dashboard_habits as $dashboard_habit) : ?>
-                        <li class="habit-tracker-stack-item">
+                        <?php
+                        $stack_category_class = $this->resolveStackCategoryClass($dashboard_habit);
+                        ?>
+                        <li class="habit-tracker-stack-item habit-tracker-stack-item--<?php echo esc_attr($stack_category_class); ?>">
                             <span class="habit-tracker-stack-item__name"><?php echo esc_html((string) $dashboard_habit->name); ?></span>
-                            <span class="habit-tracker-pill">
-                                <?php
-                                echo esc_html(
-                                    (string) $dashboard_habit->source_type === 'custom'
-                                        ? __('Custom', 'habit-tracker')
-                                        : __('Shared', 'habit-tracker')
-                                );
-                                ?>
-                            </span>
                         </li>
                     <?php endforeach; ?>
                 </ul>
@@ -609,6 +604,26 @@ final class HabitsShortcode
             'active_shared_habit_ids' => array_flip($this->user_habits->getActiveSharedHabitIdsByUser($user_id)),
             'redirect_url' => $this->getCurrentUrl(),
         ];
+    }
+
+    private function resolveStackCategoryClass(object $dashboard_habit): string
+    {
+        $category_key = sanitize_key((string) ($dashboard_habit->category ?? ''));
+
+        if (
+            $category_key === self::CATEGORY_MIND ||
+            $category_key === self::CATEGORY_BODY ||
+            $category_key === self::CATEGORY_PRODUCTIVITY ||
+            $category_key === self::CATEGORY_LIFE
+        ) {
+            return $category_key;
+        }
+
+        if ((string) ($dashboard_habit->source_type ?? '') === 'custom') {
+            return self::CATEGORY_CUSTOM;
+        }
+
+        return self::CATEGORY_LIFE;
     }
 
     private function groupHabitsByPresetCategory(array $shared_habits): array
