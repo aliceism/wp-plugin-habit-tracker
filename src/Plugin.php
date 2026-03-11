@@ -3,8 +3,10 @@
 namespace HabitTracker;
 
 use HabitTracker\Admin\HabitAdminPage;
+use HabitTracker\Frontend\DashboardShortcode;
 use HabitTracker\Frontend\HabitsShortcode;
 use HabitTracker\Infrastructure\Database\Migrations;
+use HabitTracker\Infrastructure\Persistence\WpdbCheckinRepository;
 use HabitTracker\Infrastructure\Persistence\WpdbHabitRepository;
 use HabitTracker\Infrastructure\Persistence\WpdbUserHabitRepository;
 
@@ -22,7 +24,11 @@ final class Plugin
 
     private ?WpdbUserHabitRepository $user_habit_repository = null;
 
+    private ?WpdbCheckinRepository $checkin_repository = null;
+
     private ?HabitsShortcode $habits_shortcode = null;
+
+    private ?DashboardShortcode $dashboard_shortcode = null;
 
     public static function instance(): self
     {
@@ -67,6 +73,15 @@ final class Plugin
         return $this->user_habit_repository;
     }
 
+    public function checkins(): WpdbCheckinRepository
+    {
+        if (! $this->checkin_repository instanceof WpdbCheckinRepository) {
+            $this->checkin_repository = new WpdbCheckinRepository();
+        }
+
+        return $this->checkin_repository;
+    }
+
     private function bootAdmin(): void
     {
         $admin_page = new HabitAdminPage($this->habits());
@@ -77,10 +92,19 @@ final class Plugin
     private function bootFrontend(): void
     {
         if ($this->habits_shortcode instanceof HabitsShortcode) {
-            return;
+            if ($this->dashboard_shortcode instanceof DashboardShortcode) {
+                return;
+            }
         }
 
-        $this->habits_shortcode = new HabitsShortcode($this->habits(), $this->userHabits());
-        $this->habits_shortcode->register();
+        if (! $this->habits_shortcode instanceof HabitsShortcode) {
+            $this->habits_shortcode = new HabitsShortcode($this->habits(), $this->userHabits());
+            $this->habits_shortcode->register();
+        }
+
+        if (! $this->dashboard_shortcode instanceof DashboardShortcode) {
+            $this->dashboard_shortcode = new DashboardShortcode($this->userHabits(), $this->checkins());
+            $this->dashboard_shortcode->register();
+        }
     }
 }

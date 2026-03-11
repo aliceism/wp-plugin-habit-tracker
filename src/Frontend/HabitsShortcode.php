@@ -304,20 +304,22 @@ final class HabitsShortcode
                         <li class="habit-tracker-stack-item habit-tracker-stack-item--<?php echo esc_attr($stack_category_class); ?>">
                             <span class="habit-tracker-stack-item__name"><?php echo esc_html((string) $dashboard_habit->name); ?></span>
                             <?php if ($stack_item_id > 0) : ?>
-                                <form class="habit-tracker-inline-form" method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
-                                    <input type="hidden" name="action" value="<?php echo esc_attr(self::REMOVE_USER_HABIT_ACTION); ?>">
-                                    <input type="hidden" name="user_habit_id" value="<?php echo esc_attr((string) $stack_item_id); ?>">
-                                    <input type="hidden" name="redirect_to" value="<?php echo esc_url($this->getCurrentUrl()); ?>">
-                                    <?php wp_nonce_field(self::REMOVE_USER_HABIT_ACTION); ?>
-                                    <button
-                                        type="submit"
-                                        class="habit-tracker-stack-item__remove"
-                                        aria-label="<?php esc_attr_e('Remove from dashboard stack', 'habit-tracker'); ?>"
-                                        title="<?php esc_attr_e('Remove from dashboard stack', 'habit-tracker'); ?>"
-                                    >
-                                        &times;
-                                    </button>
-                                </form>
+                                <div class="habit-tracker-stack-item__controls">
+                                    <form class="habit-tracker-inline-form" method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
+                                        <input type="hidden" name="action" value="<?php echo esc_attr(self::REMOVE_USER_HABIT_ACTION); ?>">
+                                        <input type="hidden" name="user_habit_id" value="<?php echo esc_attr((string) $stack_item_id); ?>">
+                                        <input type="hidden" name="redirect_to" value="<?php echo esc_url($this->getCurrentUrl()); ?>">
+                                        <?php wp_nonce_field(self::REMOVE_USER_HABIT_ACTION); ?>
+                                        <button
+                                            type="submit"
+                                            class="habit-tracker-stack-item__remove"
+                                            aria-label="<?php esc_attr_e('Remove from dashboard stack', 'habit-tracker'); ?>"
+                                            title="<?php esc_attr_e('Remove from dashboard stack', 'habit-tracker'); ?>"
+                                        >
+                                            &times;
+                                        </button>
+                                    </form>
+                                </div>
                             <?php endif; ?>
                         </li>
                     <?php endforeach; ?>

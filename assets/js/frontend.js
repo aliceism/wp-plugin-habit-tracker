@@ -3,6 +3,7 @@
   const MODAL_ATTR = "data-ht-modal";
   const CLOSE_ATTR = "data-ht-close-modal";
   const HEADER_CLASS = "habit-tracker-page-header";
+  const DASHBOARD_HEADER_CLASS = "habit-tracker-dashboard-header";
 
   function markHabitsPageHeader() {
     const hasHabitsUi = document.querySelector(
@@ -15,6 +16,20 @@
 
     if (pageHeader) {
       pageHeader.classList.add(HEADER_CLASS);
+    }
+  }
+
+  function markDashboardPageHeader() {
+    const hasDashboardUi = document.querySelector(
+      ".habit-tracker-dashboard, .habit-tracker-dashboard-metrics, .habit-tracker-dashboard-panels"
+    );
+
+    if (!hasDashboardUi) return;
+
+    const pageHeader = document.querySelector(".app-page-header");
+
+    if (pageHeader) {
+      pageHeader.classList.add(DASHBOARD_HEADER_CLASS);
     }
   }
 
@@ -49,6 +64,7 @@
   }
 
   markHabitsPageHeader();
+  markDashboardPageHeader();
 
   document.addEventListener("click", (event) => {
     const openTrigger = event.target.closest(`[${OPEN_ATTR}]`);
