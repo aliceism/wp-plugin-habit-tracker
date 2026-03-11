@@ -201,6 +201,39 @@ final class WpdbUserHabitRepository
         return $inserted === false ? 'error' : 'created';
     }
 
+    public function archiveActiveByIdForUser(int $user_id, int $user_habit_id): string
+    {
+        if ($user_id <= 0 || $user_habit_id <= 0) {
+            return 'not-found';
+        }
+
+        $updated = $this->wpdb->update(
+            $this->user_habits_table,
+            [
+                'is_active'   => 0,
+                'archived_at' => current_time('mysql'),
+                'updated_at'  => current_time('mysql'),
+            ],
+            [
+                'id' => $user_habit_id,
+                'user_id' => $user_id,
+                'is_active' => 1,
+            ],
+            ['%d', '%s', '%s'],
+            ['%d', '%d', '%d']
+        );
+
+        if ($updated === false) {
+            return 'error';
+        }
+
+        if ($updated === 0) {
+            return 'not-found';
+        }
+
+        return 'archived';
+    }
+
     private function findByUserAndHabitId(int $user_id, int $habit_id): ?object
     {
         $sql = $this->wpdb->prepare(

@@ -18,6 +18,7 @@ final class HabitsShortcode
     private const SHORTCODE_CUSTOM = 'habit_tracker_habits_custom';
     private const ADD_SHARED_ACTION = 'habit_tracker_add_shared_habit';
     private const ADD_CUSTOM_ACTION = 'habit_tracker_add_custom_habit';
+    private const REMOVE_USER_HABIT_ACTION = 'habit_tracker_remove_user_habit';
     private const NOTICE_QUERY_KEY = 'ht_notice';
     private const CATEGORY_MIND = 'mind';
     private const CATEGORY_BODY = 'body';
@@ -45,8 +46,10 @@ final class HabitsShortcode
 
         add_action('admin_post_' . self::ADD_SHARED_ACTION, [$this, 'handleAddSharedHabit']);
         add_action('admin_post_' . self::ADD_CUSTOM_ACTION, [$this, 'handleAddCustomHabit']);
+        add_action('admin_post_' . self::REMOVE_USER_HABIT_ACTION, [$this, 'handleRemoveUserHabit']);
         add_action('admin_post_nopriv_' . self::ADD_SHARED_ACTION, [$this, 'handleUnauthorized']);
         add_action('admin_post_nopriv_' . self::ADD_CUSTOM_ACTION, [$this, 'handleUnauthorized']);
+        add_action('admin_post_nopriv_' . self::REMOVE_USER_HABIT_ACTION, [$this, 'handleUnauthorized']);
     }
 
     public function render(array $atts = [], ?string $content = null, string $shortcode_tag = ''): string
@@ -204,6 +207,33 @@ final class HabitsShortcode
         $this->redirectWithNotice('custom-added');
     }
 
+    public function handleRemoveUserHabit(): void
+    {
+        if (! is_user_logged_in()) {
+            $this->handleUnauthorized();
+        }
+
+        check_admin_referer(self::REMOVE_USER_HABIT_ACTION);
+
+        $user_habit_id = isset($_POST['user_habit_id']) ? absint(wp_unslash($_POST['user_habit_id'])) : 0;
+
+        if ($user_habit_id <= 0) {
+            $this->redirectWithNotice('stack-remove-invalid');
+        }
+
+        $result = $this->user_habits->archiveActiveByIdForUser(get_current_user_id(), $user_habit_id);
+
+        if ($result === 'archived') {
+            $this->redirectWithNotice('stack-removed');
+        }
+
+        if ($result === 'not-found') {
+            $this->redirectWithNotice('stack-remove-invalid');
+        }
+
+        $this->redirectWithNotice('stack-remove-failed');
+    }
+
     public function handleUnauthorized(): void
     {
         $redirect = $this->resolveRedirectUrl();
@@ -269,9 +299,26 @@ final class HabitsShortcode
                     <?php foreach ($user_dashboard_habits as $dashboard_habit) : ?>
                         <?php
                         $stack_category_class = $this->resolveStackCategoryClass($dashboard_habit);
+                        $stack_item_id = isset($dashboard_habit->id) ? (int) $dashboard_habit->id : 0;
                         ?>
                         <li class="habit-tracker-stack-item habit-tracker-stack-item--<?php echo esc_attr($stack_category_class); ?>">
                             <span class="habit-tracker-stack-item__name"><?php echo esc_html((string) $dashboard_habit->name); ?></span>
+                            <?php if ($stack_item_id > 0) : ?>
+                                <form class="habit-tracker-inline-form" method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
+                                    <input type="hidden" name="action" value="<?php echo esc_attr(self::REMOVE_USER_HABIT_ACTION); ?>">
+                                    <input type="hidden" name="user_habit_id" value="<?php echo esc_attr((string) $stack_item_id); ?>">
+                                    <input type="hidden" name="redirect_to" value="<?php echo esc_url($this->getCurrentUrl()); ?>">
+                                    <?php wp_nonce_field(self::REMOVE_USER_HABIT_ACTION); ?>
+                                    <button
+                                        type="submit"
+                                        class="habit-tracker-stack-item__remove"
+                                        aria-label="<?php esc_attr_e('Remove from dashboard stack', 'habit-tracker'); ?>"
+                                        title="<?php esc_attr_e('Remove from dashboard stack', 'habit-tracker'); ?>"
+                                    >
+                                        &times;
+                                    </button>
+                                </form>
+                            <?php endif; ?>
                         </li>
                     <?php endforeach; ?>
                 </ul>
@@ -516,6 +563,18 @@ final class HabitsShortcode
             'custom-add-failed' => [
                 'class' => 'habit-tracker-notice habit-tracker-notice--error',
                 'text' => __('Could not create custom habit.', 'habit-tracker'),
+            ],
+            'stack-removed' => [
+                'class' => 'habit-tracker-notice habit-tracker-notice--success',
+                'text' => __('Habit removed from your dashboard stack.', 'habit-tracker'),
+            ],
+            'stack-remove-invalid' => [
+                'class' => 'habit-tracker-notice habit-tracker-notice--info',
+                'text' => __('This habit is no longer active in your dashboard stack.', 'habit-tracker'),
+            ],
+            'stack-remove-failed' => [
+                'class' => 'habit-tracker-notice habit-tracker-notice--error',
+                'text' => __('Could not remove the habit from your dashboard stack.', 'habit-tracker'),
             ],
         ];
 

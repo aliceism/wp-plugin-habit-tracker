@@ -308,6 +308,37 @@ body.page-template-page-habits-php .app-page-header__subtitle {
     font-weight: 600;
 }
 
+.habit-tracker-stack-item__remove {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    margin-left: auto;
+    padding: 0;
+    border: 1px solid rgba(var(--ht-stack-accent-rgb), 0.42);
+    border-radius: 999px;
+    background: rgba(var(--ht-stack-accent-rgb), 0.12);
+    color: rgba(var(--ht-stack-accent-rgb), 0.94);
+    font-size: 1.15rem;
+    line-height: 1;
+    cursor: pointer;
+    transition: border-color 0.3s ease, box-shadow 0.3s ease, transform 0.3s ease, background-color 0.3s ease;
+}
+
+.habit-tracker-stack-item__remove:hover,
+.habit-tracker-stack-item__remove:focus-visible {
+    border-color: rgba(var(--ht-stack-accent-rgb), 0.74);
+    background: rgba(var(--ht-stack-accent-rgb), 0.18);
+    box-shadow: 0 0 16px rgba(var(--ht-stack-accent-rgb), 0.24);
+    transform: translateY(-1px);
+}
+
+.habit-tracker-stack-item__remove:focus-visible {
+    outline: 2px solid rgba(var(--ht-stack-accent-rgb), 0.55);
+    outline-offset: 2px;
+}
+
 .habit-tracker-stack-item--mind {
     --ht-stack-accent-rgb: 59, 130, 246;
 }
