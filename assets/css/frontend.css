@@ -461,6 +461,34 @@ body.page-template-page-habits-php .app-page-header__subtitle {
     gap: 1.1rem;
 }
 
+.habit-tracker-dashboard-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.habit-tracker-metric-card {
+    --ht-metric-rgb: 59, 130, 246;
+    display: grid;
+    grid-template-columns: auto 1fr;
+    align-items: center;
+    gap: 0.9rem;
+}
+
+.habit-tracker-metric-card--momentum {
+    --ht-metric-rgb: 59, 130, 246;
+}
+
+.habit-tracker-metric-card--today {
+    --ht-metric-rgb: 34, 255, 136;
+}
+
+.habit-tracker-metric-card--month {
+    --ht-metric-rgb: 236, 72, 153;
+}
+
+.habit-tracker-metric-card--coverage {
+    --ht-metric-rgb: 192, 38, 211;
+}
+
 .habit-tracker-dashboard-metrics .app-metric {
     overflow: hidden;
 }
@@ -473,19 +501,411 @@ body.page-template-page-habits-php .app-page-header__subtitle {
     right: 1rem;
     height: 2px;
     border-radius: 999px;
-    background: linear-gradient(90deg, rgba(59, 130, 246, 0.92), rgba(34, 255, 136, 0.74));
+    background: linear-gradient(90deg, rgba(var(--ht-metric-rgb), 0.92), rgba(var(--ht-metric-rgb), 0.3));
+}
+
+.habit-tracker-metric-orb {
+    --ht-value: 0;
+    position: relative;
+    width: 4.25rem;
+    height: 4.25rem;
+    display: inline-grid;
+    place-items: center;
+    border-radius: 50%;
+    background:
+        radial-gradient(circle at center, rgba(8, 12, 24, 0.92) 58%, transparent 59%),
+        conic-gradient(
+            rgba(var(--ht-metric-rgb), 0.95) calc(var(--ht-value) * 1%),
+            rgba(71, 85, 105, 0.36) 0
+        );
+    border: 1px solid rgba(var(--ht-metric-rgb), 0.36);
+    box-shadow: 0 0 16px rgba(var(--ht-metric-rgb), 0.2);
+}
+
+.habit-tracker-metric-orb span {
+    color: var(--ht-text-primary);
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+}
+
+.habit-tracker-metric-content {
+    min-width: 0;
+}
+
+.habit-tracker-metric-content .app-metric__label {
+    margin-bottom: 0.35rem;
+}
+
+.habit-tracker-metric-content .app-metric__value {
+    margin-bottom: 0.2rem;
+    font-size: clamp(1.15rem, 2vw, 1.45rem);
+}
+
+.habit-tracker-metric-content .app-metric__meta {
+    font-size: 0.82rem;
+    color: var(--ht-text-secondary);
 }
 
 .habit-tracker-dashboard-panels {
     display: grid;
     gap: 1rem;
     align-items: start;
+    grid-template-columns: minmax(0, 1fr);
+}
+
+.habit-tracker-month-layout {
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: 1fr;
+}
+
+.habit-tracker-month-table-panel {
+    --ht-month-fill-rgb: 59, 130, 246;
+    --ht-check-cell-size: 0.74rem;
+    display: grid;
+    gap: 0.75rem;
+}
+
+.habit-tracker-month-table-wrap {
+    overflow: hidden;
+    border: 1px solid rgba(148, 163, 184, 0.24);
+    border-radius: 14px;
+    background:
+        radial-gradient(circle at top right, rgba(59, 130, 246, 0.07), transparent 38%),
+        linear-gradient(180deg, rgba(4, 9, 18, 0.94), rgba(3, 7, 14, 0.98));
+    padding: 0.4rem;
+}
+
+.habit-tracker-month-table {
+    width: 100%;
+    min-width: 0;
+    border-collapse: separate;
+    border-spacing: 0 0.18rem;
+    table-layout: fixed;
+}
+
+.habit-tracker-month-table th,
+.habit-tracker-month-table td {
+    border: 0;
+}
+
+.habit-tracker-month-table thead th {
+    padding: 0.28rem 0.2rem;
+    color: #e2e8f0;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    text-transform: none;
+    text-align: center;
+    background: transparent;
+}
+
+.habit-tracker-month-table thead .habit-tracker-month-table__weeks th {
+    color: #cbd5e1;
+    background: transparent;
+    border-radius: 0;
+    white-space: nowrap;
+}
+
+.habit-tracker-month-table thead .habit-tracker-month-table__days th {
+    vertical-align: bottom;
+}
+
+.habit-tracker-month-dayhead {
+    display: grid;
+    grid-template-rows: 1.62rem 0.78rem;
+    justify-items: center;
+    align-items: end;
+    row-gap: 0.08rem;
+    width: 100%;
+    min-height: 2.48rem;
+}
+
+.habit-tracker-month-dayname {
+    display: inline-flex;
+    align-items: flex-end;
+    justify-content: center;
+    height: 100%;
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
+    transform: rotate(180deg);
+    white-space: nowrap;
+    line-height: 1;
+    color: rgba(203, 213, 225, 0.78);
+    font-size: 0.54rem;
+    letter-spacing: 0;
+}
+
+.habit-tracker-month-daynum {
+    display: block;
+    min-width: 1.2ch;
+    margin: 0;
+    text-align: center;
+    color: #e2e8f0;
+    font-size: 0.66rem;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.habit-tracker-month-table__habit-col,
+.habit-tracker-month-habit {
+    width: 27%;
+    min-width: 0;
+    max-width: none;
+    padding: 0.44rem 0.45rem;
+    text-align: left;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.habit-tracker-month-habit {
+    position: relative;
+    color: #ffffff;
+    font-size: 0.88rem;
+    font-weight: 500;
+    padding-left: 1.3rem;
+    background: rgba(15, 23, 42, 0.42);
+    border-left: 0;
+    border-top-left-radius: 8px;
+    border-bottom-left-radius: 8px;
+    transition: background-color 0.25s ease, box-shadow 0.25s ease;
+}
+
+.habit-tracker-month-habit::before {
+    content: "";
+    position: absolute;
+    left: 0.58rem;
+    top: 50%;
+    width: 0.34rem;
+    height: 1.95rem;
+    border-radius: 999px;
+    background: rgb(var(--ht-dashboard-accent-rgb));
+    box-shadow: 0 0 14px rgba(var(--ht-dashboard-accent-rgb), 0.26);
+    transform: translateY(-50%);
+}
+
+.habit-tracker-month-table__progress-col,
+.habit-tracker-month-progress {
+    width: 16%;
+    min-width: 0;
+    max-width: none;
+    padding: 0.3rem 0.32rem;
+    background: rgba(15, 23, 42, 0.42);
+    border-top-right-radius: 8px;
+    border-bottom-right-radius: 8px;
+    transition: background-color 0.25s ease, box-shadow 0.25s ease;
+}
+
+.habit-tracker-month-day {
+    width: auto;
+    min-width: 0;
+    max-width: none;
+    height: auto;
+    padding: 0.1rem 0.08rem;
+    text-align: center;
+    background: transparent;
+}
+
+.habit-tracker-month-day.is-today {
+    position: relative;
+}
+
+.habit-tracker-month-row {
+    --ht-dashboard-accent-rgb: 148, 163, 184;
+}
+
+.habit-tracker-month-row--mind {
+    --ht-dashboard-accent-rgb: 59, 130, 246;
+}
+
+.habit-tracker-month-row--body {
+    --ht-dashboard-accent-rgb: 192, 38, 211;
+}
+
+.habit-tracker-month-row--productivity {
+    --ht-dashboard-accent-rgb: 236, 72, 153;
+}
+
+.habit-tracker-month-row--life {
+    --ht-dashboard-accent-rgb: 255, 176, 32;
+}
+
+.habit-tracker-month-row--custom {
+    --ht-dashboard-accent-rgb: 34, 255, 136;
+}
+
+.habit-tracker-month-cell {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: var(--ht-check-cell-size);
+    min-width: var(--ht-check-cell-size);
+    aspect-ratio: 1 / 1;
+    border: 1px solid rgba(100, 116, 139, 0.28);
+    border-radius: 2px;
+    background: rgba(15, 23, 42, 0.86);
+    box-shadow: none;
+    transition: transform 0.16s ease, box-shadow 0.16s ease, background-color 0.16s ease, border-color 0.16s ease, opacity 0.16s ease;
+}
+
+.habit-tracker-month-cell.is-filled {
+    border-color: rgba(var(--ht-dashboard-accent-rgb), 0.84);
+    background: rgba(var(--ht-dashboard-accent-rgb), 0.84);
+    box-shadow: 0 0 0 1px rgba(var(--ht-dashboard-accent-rgb), 0.22) inset;
+}
+
+.habit-tracker-month-cell.is-future {
+    opacity: 0.22;
+}
+
+.habit-tracker-month-cell--action {
+    -webkit-appearance: none;
+    appearance: none;
+    padding: 0;
+    border: 1px solid rgba(100, 116, 139, 0.38);
+    border-radius: 2px;
+    cursor: pointer;
+    font-size: 0;
+    font-weight: 700;
+    color: transparent;
+    background: rgba(15, 23, 42, 0.9);
+    pointer-events: auto;
+    position: relative;
+    z-index: 2;
+    box-shadow: none;
+    transition: border-color 0.16s ease, box-shadow 0.16s ease, transform 0.16s ease, background-color 0.16s ease;
+}
+
+.habit-tracker-month-toggle-form .habit-tracker-month-cell--action {
+    width: var(--ht-check-cell-size);
+    min-width: var(--ht-check-cell-size);
+    aspect-ratio: 1 / 1;
+    border-radius: 2px !important;
+    line-height: 1;
+}
+
+.habit-tracker-month-day.is-today .habit-tracker-month-toggle-form {
+    display: flex;
+    width: 100%;
+    justify-content: center;
+}
+
+.habit-tracker-month-cell--action:hover,
+.habit-tracker-month-cell--action:focus-visible {
+    border-color: rgba(var(--ht-dashboard-accent-rgb), 0.9);
+    background: rgba(var(--ht-dashboard-accent-rgb), 0.76);
+    box-shadow: 0 0 8px rgba(var(--ht-dashboard-accent-rgb), 0.28);
+    transform: scale(1.08);
+}
+
+.habit-tracker-month-cell--action:focus-visible {
+    outline: 2px solid rgba(255, 255, 255, 0.7);
+    outline-offset: 2px;
+}
+
+.habit-tracker-month-cell.is-today {
+    outline: 1px solid rgba(var(--ht-dashboard-accent-rgb), 0.9);
+    outline-offset: 1px;
+}
+
+.habit-tracker-month-toggle-form {
+    display: inline-flex;
+}
+
+.habit-tracker-month-progress .habit-tracker-progress-bar {
+    margin-bottom: 0.24rem;
+    background: rgba(15, 23, 42, 0.82);
+}
+
+.habit-tracker-month-progress .habit-tracker-progress-bar > span {
+    background: rgba(var(--ht-dashboard-accent-rgb), 0.9);
+    box-shadow: 0 0 10px rgba(var(--ht-dashboard-accent-rgb), 0.26);
+}
+
+.habit-tracker-month-progress-text {
+    display: block;
+    color: #ffffff;
+    font-size: 0.74rem;
+    line-height: 1.2;
+}
+
+.habit-tracker-month-side {
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.habit-tracker-month-side-card {
+    display: grid;
+    gap: 0.7rem;
+    background:
+        radial-gradient(circle at top right, rgba(59, 130, 246, 0.11), transparent 34%),
+        linear-gradient(180deg, rgba(13, 19, 35, 0.95), rgba(7, 11, 20, 0.98));
+}
+
+.habit-tracker-streak-list {
+    display: grid;
+    gap: 0.52rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.habit-tracker-streak-item {
+    --ht-dashboard-accent-rgb: 148, 163, 184;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.6rem;
+    padding: 0.48rem 0.56rem;
+    border: 1px solid rgba(148, 163, 184, 0.14);
+    border-radius: 10px;
+    background: rgba(8, 12, 24, 0.45);
+}
+
+.habit-tracker-streak-item--mind {
+    --ht-dashboard-accent-rgb: 59, 130, 246;
+}
+
+.habit-tracker-streak-item--body {
+    --ht-dashboard-accent-rgb: 192, 38, 211;
+}
+
+.habit-tracker-streak-item--productivity {
+    --ht-dashboard-accent-rgb: 236, 72, 153;
+}
+
+.habit-tracker-streak-item--life {
+    --ht-dashboard-accent-rgb: 255, 176, 32;
+}
+
+.habit-tracker-streak-item--custom {
+    --ht-dashboard-accent-rgb: 34, 255, 136;
+}
+
+.habit-tracker-streak-item__name {
+    min-width: 0;
+    color: var(--ht-text-primary);
+    font-size: 0.84rem;
+    line-height: 1.25;
+}
+
+.habit-tracker-streak-item__value {
+    flex-shrink: 0;
+    color: rgba(var(--ht-dashboard-accent-rgb), 0.95);
+    font-size: 0.76rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
 }
 
 .habit-tracker-dashboard-panel {
     --ht-dashboard-accent-rgb: 59, 130, 246;
     position: relative;
     display: grid;
+    align-content: start;
     gap: 0.95rem;
     min-height: 100%;
     border: 1px solid rgba(var(--ht-dashboard-accent-rgb), 0.28);
@@ -534,6 +954,79 @@ body.page-template-page-habits-php .app-page-header__subtitle {
     --ht-dashboard-accent-rgb: 255, 176, 32;
 }
 
+.habit-tracker-dashboard-panel--all {
+    --ht-dashboard-accent-rgb: 148, 163, 184;
+}
+
+.habit-tracker-dashboard-layout {
+    align-items: start;
+}
+
+.habit-tracker-dashboard-side {
+    position: relative;
+    display: grid;
+    gap: 0.9rem;
+    border: 1px solid rgba(148, 163, 184, 0.22);
+    background:
+        radial-gradient(circle at top right, rgba(59, 130, 246, 0.1), transparent 34%),
+        linear-gradient(180deg, rgba(17, 24, 39, 0.96), rgba(7, 11, 20, 0.98));
+}
+
+.habit-tracker-dashboard-side::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 1rem;
+    right: 1rem;
+    height: 2px;
+    border-radius: 999px;
+    background: linear-gradient(90deg, rgba(59, 130, 246, 0.7), rgba(148, 163, 184, 0.35));
+}
+
+.habit-tracker-dashboard-side .habit-tracker-dashboard-panel__header > h3 {
+    margin: 0;
+    color: var(--ht-text-primary);
+}
+
+.habit-tracker-summary-grid {
+    display: grid;
+    gap: 0.55rem;
+    margin: 0;
+}
+
+.habit-tracker-summary-item {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.7rem;
+    padding: 0.5rem 0.6rem;
+    border: 1px solid rgba(148, 163, 184, 0.14);
+    border-radius: 10px;
+    background: rgba(8, 12, 24, 0.42);
+}
+
+.habit-tracker-summary-item dt {
+    margin: 0;
+    color: var(--ht-text-secondary);
+    font-size: 0.82rem;
+}
+
+.habit-tracker-summary-item dd {
+    margin: 0;
+    color: var(--ht-text-primary);
+    font-size: 1.1rem;
+    font-weight: 700;
+}
+
+.habit-tracker-dashboard-panel--main {
+    gap: 0.8rem;
+}
+
+.habit-tracker-dashboard-panel--main .habit-tracker-dashboard-panel__header {
+    align-self: start;
+    height: fit-content;
+}
+
 .habit-tracker-dashboard-list {
     display: grid;
     gap: 0.6rem;
@@ -547,13 +1040,27 @@ body.page-template-page-habits-php .app-page-header__subtitle {
 }
 
 .habit-tracker-checkin-form {
+    --ht-dashboard-accent-rgb: 148, 163, 184;
+    position: relative;
     display: grid;
     gap: 0.55rem;
-    padding: 0.72rem 0.75rem;
+    padding: 0.72rem 0.75rem 0.72rem 0.95rem;
     border: 1px solid rgba(148, 163, 184, 0.18);
     border-radius: 10px;
     background: rgba(8, 12, 24, 0.58);
     transition: border-color 0.3s ease, box-shadow 0.3s ease, transform 0.3s ease;
+    overflow: hidden;
+}
+
+.habit-tracker-checkin-form::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    background: rgba(var(--ht-dashboard-accent-rgb), 0.92);
+    box-shadow: 0 0 12px rgba(var(--ht-dashboard-accent-rgb), 0.28);
 }
 
 .habit-tracker-checkin-form:hover,
@@ -561,6 +1068,104 @@ body.page-template-page-habits-php .app-page-header__subtitle {
     border-color: rgba(var(--ht-dashboard-accent-rgb), 0.52);
     box-shadow: 0 0 16px rgba(var(--ht-dashboard-accent-rgb), 0.18);
     transform: translateY(-1px);
+}
+
+.habit-tracker-checkin-form--mind {
+    --ht-dashboard-accent-rgb: 59, 130, 246;
+}
+
+.habit-tracker-checkin-form--body {
+    --ht-dashboard-accent-rgb: 192, 38, 211;
+}
+
+.habit-tracker-checkin-form--productivity {
+    --ht-dashboard-accent-rgb: 236, 72, 153;
+}
+
+.habit-tracker-checkin-form--life {
+    --ht-dashboard-accent-rgb: 255, 176, 32;
+}
+
+.habit-tracker-insights-section {
+    display: grid;
+    gap: 0.7rem;
+}
+
+.habit-tracker-ranking-list {
+    display: grid;
+    gap: 0.55rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.habit-tracker-ranking-item {
+    --ht-dashboard-accent-rgb: 148, 163, 184;
+    display: grid;
+    gap: 0.34rem;
+    padding: 0.46rem 0.58rem;
+    border: 1px solid rgba(148, 163, 184, 0.14);
+    border-radius: 10px;
+    background: rgba(8, 12, 24, 0.45);
+}
+
+.habit-tracker-ranking-item--mind {
+    --ht-dashboard-accent-rgb: 59, 130, 246;
+}
+
+.habit-tracker-ranking-item--body {
+    --ht-dashboard-accent-rgb: 192, 38, 211;
+}
+
+.habit-tracker-ranking-item--productivity {
+    --ht-dashboard-accent-rgb: 236, 72, 153;
+}
+
+.habit-tracker-ranking-item--life {
+    --ht-dashboard-accent-rgb: 255, 176, 32;
+}
+
+.habit-tracker-ranking-item--custom {
+    --ht-dashboard-accent-rgb: 34, 255, 136;
+}
+
+.habit-tracker-ranking-item__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.65rem;
+}
+
+.habit-tracker-ranking-item__name {
+    min-width: 0;
+    color: var(--ht-text-primary);
+    font-size: 0.85rem;
+    line-height: 1.25;
+}
+
+.habit-tracker-ranking-item__value {
+    flex-shrink: 0;
+    color: var(--ht-text-secondary);
+    font-size: 0.78rem;
+    font-weight: 600;
+}
+
+.habit-tracker-progress-bar {
+    position: relative;
+    display: block;
+    width: 100%;
+    height: 0.38rem;
+    border-radius: 999px;
+    background: rgba(71, 85, 105, 0.3);
+    overflow: hidden;
+}
+
+.habit-tracker-progress-bar > span {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: rgba(var(--ht-dashboard-accent-rgb), 0.88);
+    box-shadow: 0 0 10px rgba(var(--ht-dashboard-accent-rgb), 0.25);
 }
 
 .habit-tracker-dashboard-item__main {
@@ -1032,6 +1637,40 @@ body.habit-tracker-modal-open {
 }
 
 @media (max-width: 640px) {
+    .habit-tracker-dashboard-metrics {
+        grid-template-columns: 1fr;
+    }
+
+    .habit-tracker-month-table-panel {
+        --ht-check-cell-size: 0.66rem;
+    }
+
+    .habit-tracker-month-table__habit-col,
+    .habit-tracker-month-habit {
+        width: 30%;
+    }
+
+    .habit-tracker-month-table__progress-col,
+    .habit-tracker-month-progress {
+        width: 18%;
+    }
+
+    .habit-tracker-month-dayname {
+        display: none;
+    }
+
+    .habit-tracker-month-dayhead {
+        min-height: auto;
+    }
+
+    .habit-tracker-month-daynum {
+        font-size: 0.56rem;
+    }
+
+    .habit-tracker-month-progress-text {
+        font-size: 0.62rem;
+    }
+
     .habit-tracker-category-grid {
         grid-template-columns: 1fr;
     }
@@ -1044,6 +1683,13 @@ body.habit-tracker-modal-open {
         grid-template-columns: repeat(10, minmax(0, 0.8rem));
         margin-left: 0;
     }
+
+    .habit-tracker-metric-card {
+        grid-template-columns: 1fr;
+        gap: 0.65rem;
+        justify-items: center;
+        text-align: center;
+    }
 }
 
 @media (min-width: 768px) {
@@ -1055,6 +1701,19 @@ body.habit-tracker-modal-open {
         padding: 1.65rem 1.55rem 1.4rem;
     }
 }
+
+@media (max-width: 860px) {
+    .habit-tracker-month-side {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (min-width: 1024px) {
+    .habit-tracker-dashboard-metrics {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+}
+
 
 @media (prefers-reduced-motion: reduce) {
     .app-page-header.habit-tracker-page-header::before,

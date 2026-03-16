@@ -203,102 +203,238 @@ final class DashboardShortcode
 
     private function renderMetricsCards(array $metrics): void
     {
-        ?>
-        <article class="card app-card app-metric">
-            <p class="app-metric__label"><?php esc_html_e('Current Streak', 'habit-tracker'); ?></p>
-            <h2 class="app-metric__value">
-                <?php
-                printf(
+        $cards = [
+            [
+                'class' => 'momentum',
+                'label' => __('Momentum', 'habit-tracker'),
+                'value' => (int) $metrics['streak_percent'],
+                'stat' => sprintf(
                     esc_html(_n('%d day', '%d days', (int) $metrics['streak_days'], 'habit-tracker')),
                     (int) $metrics['streak_days']
-                );
-                ?>
-            </h2>
-            <p class="app-metric__meta"><?php esc_html_e('Consecutive days with at least one completed check.', 'habit-tracker'); ?></p>
-        </article>
+                ),
+                'meta' => __('Current streak length.', 'habit-tracker'),
+            ],
+            [
+                'class' => 'today',
+                'label' => __('Today', 'habit-tracker'),
+                'value' => (int) $metrics['today_completion_percent'],
+                'stat' => sprintf(
+                    esc_html__('%1$d / %2$d habits', 'habit-tracker'),
+                    (int) $metrics['checked_today'],
+                    (int) $metrics['active_habits']
+                ),
+                'meta' => __('Checked habits for today.', 'habit-tracker'),
+            ],
+            [
+                'class' => 'month',
+                'label' => __('Monthly Progress', 'habit-tracker'),
+                'value' => (int) $metrics['monthly_consistency_percent'],
+                'stat' => sprintf(
+                    esc_html__('%d%% complete', 'habit-tracker'),
+                    (int) $metrics['monthly_consistency_percent']
+                ),
+                'meta' => __('Completed checks for the last 30 days.', 'habit-tracker'),
+            ],
+            [
+                'class' => 'coverage',
+                'label' => __('Active Days', 'habit-tracker'),
+                'value' => (int) $metrics['active_days_percent'],
+                'stat' => sprintf(
+                    esc_html__('%1$d / %2$d days', 'habit-tracker'),
+                    (int) $metrics['active_days'],
+                    self::HISTORY_DAYS
+                ),
+                'meta' => __('Days with at least one completed check.', 'habit-tracker'),
+            ],
+        ];
 
-        <article class="card app-card app-metric">
-            <p class="app-metric__label"><?php esc_html_e('Monthly Consistency', 'habit-tracker'); ?></p>
-            <h2 class="app-metric__value"><?php echo esc_html((string) (int) $metrics['monthly_consistency_percent']); ?>%</h2>
-            <p class="app-metric__meta"><?php esc_html_e('Completed checks against all possible checks in the last 30 days.', 'habit-tracker'); ?></p>
-        </article>
-
-        <article class="card app-card app-metric">
-            <p class="app-metric__label"><?php esc_html_e('Active Habits', 'habit-tracker'); ?></p>
-            <h2 class="app-metric__value"><?php echo esc_html((string) (int) $metrics['active_habits']); ?></h2>
-            <p class="app-metric__meta"><?php esc_html_e('Habits currently active in your dashboard stack.', 'habit-tracker'); ?></p>
-        </article>
+        ?>
+        <?php foreach ($cards as $card) : ?>
+            <article class="card app-card app-metric habit-tracker-metric-card habit-tracker-metric-card--<?php echo esc_attr($card['class']); ?>">
+                <div class="habit-tracker-metric-orb" style="--ht-value: <?php echo esc_attr((string) $card['value']); ?>;">
+                    <span><?php echo esc_html((string) (int) $card['value']); ?>%</span>
+                </div>
+                <div class="habit-tracker-metric-content">
+                    <p class="app-metric__label"><?php echo esc_html((string) $card['label']); ?></p>
+                    <h2 class="app-metric__value"><?php echo esc_html((string) $card['stat']); ?></h2>
+                    <p class="app-metric__meta"><?php echo esc_html((string) $card['meta']); ?></p>
+                </div>
+            </article>
+        <?php endforeach; ?>
         <?php
     }
 
     private function renderPanels(array $context): void
     {
-        $categories = [
-            self::CATEGORY_MIND => __('Mind', 'habit-tracker'),
-            self::CATEGORY_BODY => __('Body', 'habit-tracker'),
-            self::CATEGORY_PRODUCTIVITY => __('Productivity', 'habit-tracker'),
-            self::CATEGORY_LIFE => __('Life', 'habit-tracker'),
-        ];
+        $ordered_habits = $this->flattenHabitsByCategory($context['habits_by_category']);
+        $month_rows = $this->buildMonthRows(
+            $ordered_habits,
+            $context['month_map'],
+            $context['history_map'],
+            (int) $context['days_elapsed'],
+            $context['today']
+        );
+        $top_habits = $this->buildTopHabits($month_rows);
+        $active_streaks = $this->buildActiveStreaks($month_rows);
 
         ?>
-        <div class="habit-tracker-dashboard-panels app-grid">
-            <?php foreach ($categories as $category_key => $category_label) : ?>
-                <?php $category_habits = $context['habits_by_category'][$category_key] ?? []; ?>
-                <article class="card app-card habit-tracker-dashboard-panel habit-tracker-dashboard-panel--<?php echo esc_attr($category_key); ?>">
+        <div class="habit-tracker-dashboard-panels habit-tracker-month-layout">
+            <article class="card app-card habit-tracker-dashboard-panel habit-tracker-dashboard-panel--all habit-tracker-month-table-panel">
+                <div class="habit-tracker-dashboard-panel__header">
+                    <p class="app-card__eyebrow"><?php esc_html_e('Check-ins', 'habit-tracker'); ?></p>
+                    <h3>
+                        <?php
+                        printf(
+                            esc_html__('Monthly Habit Grid - %s', 'habit-tracker'),
+                            esc_html($context['month_label'])
+                        );
+                        ?>
+                    </h3>
+                </div>
+
+                <?php if ($month_rows === []) : ?>
+                    <p class="habit-tracker-empty-state"><?php esc_html_e('No active habits in your dashboard stack yet.', 'habit-tracker'); ?></p>
+                <?php else : ?>
+                    <div class="habit-tracker-month-table-wrap">
+                        <table class="habit-tracker-month-table">
+                            <thead>
+                                <tr class="habit-tracker-month-table__weeks">
+                                    <th class="habit-tracker-month-table__habit-col"><?php esc_html_e('Habits', 'habit-tracker'); ?></th>
+                                    <?php foreach ($context['month_weeks'] as $week) : ?>
+                                        <th colspan="<?php echo esc_attr((string) (int) $week['count']); ?>">
+                                            <?php echo esc_html($week['label']); ?>
+                                        </th>
+                                    <?php endforeach; ?>
+                                    <th class="habit-tracker-month-table__progress-col"><?php esc_html_e('Progress', 'habit-tracker'); ?></th>
+                                </tr>
+                                <tr class="habit-tracker-month-table__days">
+                                    <th aria-hidden="true"></th>
+                                    <?php foreach ($context['month_dates'] as $month_date) : ?>
+                                        <th title="<?php echo esc_attr($month_date); ?>">
+                                            <span class="habit-tracker-month-dayhead">
+                                                <span class="habit-tracker-month-dayname"><?php echo esc_html(wp_date('D', strtotime($month_date))); ?></span>
+                                                <strong class="habit-tracker-month-daynum"><?php echo esc_html(wp_date('j', strtotime($month_date))); ?></strong>
+                                            </span>
+                                        </th>
+                                    <?php endforeach; ?>
+                                    <th aria-hidden="true"></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($month_rows as $row) : ?>
+                                    <tr class="habit-tracker-month-row habit-tracker-month-row--<?php echo esc_attr($row['category']); ?>">
+                                        <th scope="row" class="habit-tracker-month-habit"><?php echo esc_html($row['name']); ?></th>
+
+                                        <?php foreach ($context['month_dates'] as $month_date) : ?>
+                                            <?php
+                                            $is_filled = isset($row['day_map'][$month_date]);
+                                            $is_today = $month_date === $context['today'];
+                                            $is_future = $month_date > $context['today'];
+                                            ?>
+                                            <td class="habit-tracker-month-day<?php echo $is_today ? ' is-today' : ''; ?>">
+                                                <?php if ($is_today) : ?>
+                                                    <form class="habit-tracker-month-toggle-form" method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
+                                                        <input type="hidden" name="action" value="<?php echo esc_attr(self::TOGGLE_CHECKIN_ACTION); ?>">
+                                                        <input type="hidden" name="user_habit_id" value="<?php echo esc_attr((string) $row['id']); ?>">
+                                                        <input type="hidden" name="redirect_to" value="<?php echo esc_url($context['redirect_url']); ?>">
+                                                        <?php wp_nonce_field(self::TOGGLE_CHECKIN_ACTION); ?>
+                                                        <button
+                                                            type="submit"
+                                                            class="habit-tracker-month-cell habit-tracker-month-cell--action<?php echo $is_filled ? ' is-filled' : ''; ?> is-today"
+                                                            aria-label="<?php echo esc_attr(sprintf(__('Toggle today check for %s', 'habit-tracker'), $row['name'])); ?>"
+                                                            title="<?php esc_attr_e('Toggle today check', 'habit-tracker'); ?>"
+                                                        >
+                                                            <?php echo $is_filled ? '&#10003;' : ''; ?>
+                                                        </button>
+                                                    </form>
+                                                <?php else : ?>
+                                                    <span class="habit-tracker-month-cell<?php echo $is_filled ? ' is-filled' : ''; ?><?php echo $is_future ? ' is-future' : ''; ?>"></span>
+                                                <?php endif; ?>
+                                            </td>
+                                        <?php endforeach; ?>
+
+                                        <td class="habit-tracker-month-progress">
+                                            <span class="habit-tracker-progress-bar">
+                                                <span style="width: <?php echo esc_attr((string) (int) $row['progress_percent']); ?>%;"></span>
+                                            </span>
+                                            <span class="habit-tracker-month-progress-text">
+                                                <?php
+                                                printf(
+                                                    esc_html__('%1$d/%2$d · %3$d%%', 'habit-tracker'),
+                                                    (int) $row['completed'],
+                                                    (int) $context['days_elapsed'],
+                                                    (int) $row['progress_percent']
+                                                );
+                                                ?>
+                                            </span>
+                                        </td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                <?php endif; ?>
+            </article>
+
+            <div class="habit-tracker-month-side">
+                <article class="card app-card habit-tracker-dashboard-side habit-tracker-month-side-card">
                     <div class="habit-tracker-dashboard-panel__header">
-                        <p class="app-card__eyebrow"><?php echo esc_html($category_label); ?></p>
-                        <h3><?php echo esc_html(sprintf(__('%s Check', 'habit-tracker'), $category_label)); ?></h3>
+                        <p class="app-card__eyebrow"><?php esc_html_e('Top Habits', 'habit-tracker'); ?></p>
+                        <h3><?php esc_html_e('This Month', 'habit-tracker'); ?></h3>
                     </div>
 
-                    <?php if ($category_habits === []) : ?>
-                        <p class="habit-tracker-empty-state"><?php esc_html_e('No active habits in this category.', 'habit-tracker'); ?></p>
+                    <?php if ($top_habits === []) : ?>
+                        <p class="habit-tracker-empty-state"><?php esc_html_e('No check-ins yet.', 'habit-tracker'); ?></p>
                     <?php else : ?>
-                        <ul class="habit-tracker-dashboard-list">
-                            <?php foreach ($category_habits as $habit) : ?>
-                                <?php
-                                $user_habit_id = isset($habit->id) ? (int) $habit->id : 0;
-                                $history_map = $context['history_map'][$user_habit_id] ?? [];
-                                $is_checked_today = isset($context['today_map'][$user_habit_id]);
-                                ?>
-                                <li class="habit-tracker-dashboard-item">
-                                    <form class="habit-tracker-checkin-form" method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
-                                        <input type="hidden" name="action" value="<?php echo esc_attr(self::TOGGLE_CHECKIN_ACTION); ?>">
-                                        <input type="hidden" name="user_habit_id" value="<?php echo esc_attr((string) $user_habit_id); ?>">
-                                        <input type="hidden" name="redirect_to" value="<?php echo esc_url($context['redirect_url']); ?>">
-                                        <?php wp_nonce_field(self::TOGGLE_CHECKIN_ACTION); ?>
-
-                                        <div class="habit-tracker-dashboard-item__main">
-                                            <button
-                                                type="submit"
-                                                class="habit-tracker-check-tile<?php echo $is_checked_today ? ' is-checked' : ''; ?>"
-                                                aria-label="<?php echo esc_attr(sprintf(__('Toggle today check for %s', 'habit-tracker'), (string) $habit->name)); ?>"
-                                                title="<?php esc_attr_e('Toggle today check', 'habit-tracker'); ?>"
-                                            >
-                                                <?php echo $is_checked_today ? '&#10003;' : ''; ?>
-                                            </button>
-
-                                            <span class="habit-tracker-dashboard-item__name"><?php echo esc_html((string) $habit->name); ?></span>
-                                        </div>
-
-                                        <div class="habit-tracker-dashboard-item__history" aria-hidden="true">
-                                            <?php foreach ($context['history_dates'] as $history_date) : ?>
-                                                <?php
-                                                $is_filled = isset($history_map[$history_date]);
-                                                $is_today_cell = $history_date === $context['today'];
-                                                ?>
-                                                <span
-                                                    class="habit-tracker-history-cell<?php echo $is_filled ? ' is-filled' : ''; ?><?php echo $is_today_cell ? ' is-today' : ''; ?>"
-                                                    title="<?php echo esc_attr($history_date); ?>"
-                                                ></span>
-                                            <?php endforeach; ?>
-                                        </div>
-                                    </form>
+                        <ul class="habit-tracker-ranking-list">
+                            <?php foreach ($top_habits as $top_habit) : ?>
+                                <li class="habit-tracker-ranking-item habit-tracker-ranking-item--<?php echo esc_attr($top_habit['category']); ?>">
+                                    <div class="habit-tracker-ranking-item__head">
+                                        <span class="habit-tracker-ranking-item__name"><?php echo esc_html($top_habit['name']); ?></span>
+                                        <span class="habit-tracker-ranking-item__value">
+                                            <?php
+                                            printf(
+                                                esc_html__('%1$d/%2$d', 'habit-tracker'),
+                                                (int) $top_habit['completed'],
+                                                (int) $context['days_elapsed']
+                                            );
+                                            ?>
+                                        </span>
+                                    </div>
+                                    <span class="habit-tracker-progress-bar"><span style="width: <?php echo esc_attr((string) (int) $top_habit['percent']); ?>%;"></span></span>
                                 </li>
                             <?php endforeach; ?>
                         </ul>
                     <?php endif; ?>
                 </article>
-            <?php endforeach; ?>
+
+                <article class="card app-card habit-tracker-dashboard-side habit-tracker-month-side-card">
+                    <div class="habit-tracker-dashboard-panel__header">
+                        <p class="app-card__eyebrow"><?php esc_html_e('Active Streaks', 'habit-tracker'); ?></p>
+                        <h3><?php esc_html_e('Current Run', 'habit-tracker'); ?></h3>
+                    </div>
+
+                    <?php if ($active_streaks === []) : ?>
+                        <p class="habit-tracker-empty-state"><?php esc_html_e('No active streaks right now.', 'habit-tracker'); ?></p>
+                    <?php else : ?>
+                        <ul class="habit-tracker-streak-list">
+                            <?php foreach ($active_streaks as $streak_row) : ?>
+                                <li class="habit-tracker-streak-item habit-tracker-streak-item--<?php echo esc_attr($streak_row['category']); ?>">
+                                    <span class="habit-tracker-streak-item__name"><?php echo esc_html($streak_row['name']); ?></span>
+                                    <span class="habit-tracker-streak-item__value">
+                                        <?php
+                                        printf(
+                                            esc_html(_n('%d day', '%d days', (int) $streak_row['streak'], 'habit-tracker')),
+                                            (int) $streak_row['streak']
+                                        );
+                                        ?>
+                                    </span>
+                                </li>
+                            <?php endforeach; ?>
+                        </ul>
+                    <?php endif; ?>
+                </article>
+            </div>
         </div>
         <?php
     }
@@ -413,30 +549,89 @@ final class DashboardShortcode
         $today = wp_date('Y-m-d');
         $history_dates = $this->buildHistoryDates($today, self::HISTORY_DAYS);
         $start_date = $history_dates[0] ?? $today;
+        $month_dates = $this->buildCurrentMonthDates($today);
+        $month_start = $month_dates[0] ?? $today;
+        $month_end = $month_dates !== [] ? $month_dates[count($month_dates) - 1] : $today;
         $active_habits = $this->user_habits->findActiveByUser($user_id);
+        $active_habit_ids = [];
+
+        foreach ($active_habits as $active_habit) {
+            $active_habit_id = isset($active_habit->id) ? (int) $active_habit->id : 0;
+
+            if ($active_habit_id <= 0) {
+                continue;
+            }
+
+            $active_habit_ids[$active_habit_id] = true;
+        }
+
+        $today_map = $this->checkins->getCompletedMapForDate($user_id, $today);
+        $history_map = $this->checkins->getCompletedMapForRange($user_id, $start_date, $today);
+        $month_map = $this->checkins->getCompletedMapForRange($user_id, $month_start, $month_end);
+        $today_map = array_intersect_key($today_map, $active_habit_ids);
+        $history_map = array_intersect_key($history_map, $active_habit_ids);
+        $month_map = array_intersect_key($month_map, $active_habit_ids);
 
         return [
             'today' => $today,
             'history_dates' => $history_dates,
+            'month_dates' => $month_dates,
+            'month_weeks' => $this->buildWeekGroups($month_dates),
+            'month_label' => wp_date('F Y', strtotime($today)),
+            'days_elapsed' => (int) wp_date('j', strtotime($today)),
             'redirect_url' => $this->getCurrentUrl(),
-            'today_map' => $this->checkins->getCompletedMapForDate($user_id, $today),
-            'history_map' => $this->checkins->getCompletedMapForRange($user_id, $start_date, $today),
+            'today_map' => $today_map,
+            'history_map' => $history_map,
+            'month_map' => $month_map,
             'habits_by_category' => $this->groupHabitsByCategory($active_habits),
-            'metrics' => $this->buildMetrics($user_id, count($active_habits), $start_date, $today),
+            'metrics' => $this->buildMetrics(
+                $user_id,
+                count($active_habits),
+                $today,
+                count($today_map),
+                $history_map
+            ),
         ];
     }
 
-    private function buildMetrics(int $user_id, int $active_habits_count, string $start_date, string $today): array
+    private function buildMetrics(
+        int $user_id,
+        int $active_habits_count,
+        string $today,
+        int $checked_today,
+        array $history_map
+    ): array
     {
-        $completed_month = $this->checkins->countCompletedBetween($user_id, $start_date, $today);
+        $completed_month = $this->countCompletedFromHistoryMap($history_map);
         $monthly_slots = $active_habits_count * self::HISTORY_DAYS;
         $monthly_percent = $monthly_slots > 0 ? (int) round(($completed_month / $monthly_slots) * 100) : 0;
         $monthly_percent = max(0, min(100, $monthly_percent));
+        $today_percent = $active_habits_count > 0 ? (int) round(($checked_today / $active_habits_count) * 100) : 0;
+        $today_percent = max(0, min(100, $today_percent));
+        $active_days = $this->countActiveDaysFromHistoryMap($history_map);
+        $active_days_percent = self::HISTORY_DAYS > 0
+            ? (int) round(($active_days / self::HISTORY_DAYS) * 100)
+            : 0;
+        $active_days_percent = max(0, min(100, $active_days_percent));
+        $streak_days = $this->calculateStreak($user_id, $today);
+        $streak_percent = self::HISTORY_DAYS > 0
+            ? (int) round(($streak_days / self::HISTORY_DAYS) * 100)
+            : 0;
+        $streak_percent = max(0, min(100, $streak_percent));
+        $remaining_checks = max(0, $monthly_slots - $completed_month);
 
         return [
-            'streak_days' => $this->calculateStreak($user_id, $today),
+            'streak_days' => $streak_days,
+            'streak_percent' => $streak_percent,
             'monthly_consistency_percent' => $monthly_percent,
             'active_habits' => $active_habits_count,
+            'checked_today' => $checked_today,
+            'today_completion_percent' => $today_percent,
+            'completed_checks' => $completed_month,
+            'total_slots' => $monthly_slots,
+            'remaining_checks' => $remaining_checks,
+            'active_days' => $active_days,
+            'active_days_percent' => $active_days_percent,
         ];
     }
 
@@ -495,6 +690,232 @@ final class DashboardShortcode
         }
 
         return $grouped;
+    }
+
+    private function flattenHabitsByCategory(array $habits_by_category): array
+    {
+        $ordered = [];
+        $category_order = [
+            self::CATEGORY_MIND,
+            self::CATEGORY_BODY,
+            self::CATEGORY_PRODUCTIVITY,
+            self::CATEGORY_LIFE,
+        ];
+
+        foreach ($category_order as $category_key) {
+            $category_habits = $habits_by_category[$category_key] ?? [];
+
+            foreach ($category_habits as $habit) {
+                $ordered[] = [
+                    'habit' => $habit,
+                    'category' => $category_key,
+                ];
+            }
+        }
+
+        return $ordered;
+    }
+
+    private function buildMonthRows(
+        array $ordered_habits,
+        array $month_map,
+        array $streak_map,
+        int $days_elapsed,
+        string $today
+    ): array {
+        $rows = [];
+        $days_elapsed = max(1, $days_elapsed);
+
+        foreach ($ordered_habits as $entry) {
+            $habit = $entry['habit'];
+            $category_key = (string) $entry['category'];
+            $habit_id = isset($habit->id) ? (int) $habit->id : 0;
+            $habit_month_map = $month_map[$habit_id] ?? [];
+            $completed = 0;
+
+            if (is_array($habit_month_map)) {
+                foreach ($habit_month_map as $date => $is_checked) {
+                    unset($is_checked);
+
+                    if ((string) $date <= $today) {
+                        $completed++;
+                    }
+                }
+            } else {
+                $habit_month_map = [];
+            }
+
+            $progress_percent = (int) round(($completed / $days_elapsed) * 100);
+            $progress_percent = max(0, min(100, $progress_percent));
+
+            $rows[] = [
+                'id' => $habit_id,
+                'name' => (string) ($habit->name ?? ''),
+                'category' => $category_key,
+                'day_map' => $habit_month_map,
+                'completed' => $completed,
+                'progress_percent' => $progress_percent,
+                'streak' => $this->calculateHabitStreakFromHistory($streak_map[$habit_id] ?? [], $today),
+            ];
+        }
+
+        return $rows;
+    }
+
+    private function buildTopHabits(array $rows): array
+    {
+        usort($rows, static function (array $left, array $right): int {
+            if ($left['completed'] === $right['completed']) {
+                if ($left['streak'] === $right['streak']) {
+                    return strcmp((string) $left['name'], (string) $right['name']);
+                }
+
+                return (int) $right['streak'] <=> (int) $left['streak'];
+            }
+
+            return (int) $right['completed'] <=> (int) $left['completed'];
+        });
+
+        return array_slice($rows, 0, 5);
+    }
+
+    private function buildActiveStreaks(array $rows): array
+    {
+        $active = array_values(array_filter($rows, static function (array $row): bool {
+            return (int) ($row['streak'] ?? 0) > 0;
+        }));
+
+        usort($active, static function (array $left, array $right): int {
+            if ($left['streak'] === $right['streak']) {
+                return (int) $right['completed'] <=> (int) $left['completed'];
+            }
+
+            return (int) $right['streak'] <=> (int) $left['streak'];
+        });
+
+        return array_slice($active, 0, 8);
+    }
+
+    private function buildCurrentMonthDates(string $today): array
+    {
+        $today_ts = strtotime($today);
+
+        if (! is_int($today_ts)) {
+            return [];
+        }
+
+        $month_start = wp_date('Y-m-01', $today_ts);
+        $month_end = wp_date('Y-m-t', $today_ts);
+
+        return $this->buildDateRange($month_start, $month_end);
+    }
+
+    private function buildWeekGroups(array $dates): array
+    {
+        if ($dates === []) {
+            return [];
+        }
+
+        $groups = [];
+        $week_number = 1;
+
+        foreach (array_chunk($dates, 7) as $chunk) {
+            $groups[] = [
+                'label' => sprintf(esc_html__('Week %d', 'habit-tracker'), $week_number),
+                'count' => count($chunk),
+            ];
+
+            $week_number++;
+        }
+
+        return $groups;
+    }
+
+    private function buildDateRange(string $start_date, string $end_date): array
+    {
+        $start_ts = strtotime($start_date);
+        $end_ts = strtotime($end_date);
+
+        if (! is_int($start_ts) || ! is_int($end_ts) || $end_ts < $start_ts) {
+            return [];
+        }
+
+        $dates = [];
+        $cursor = $start_ts;
+
+        while ($cursor <= $end_ts) {
+            $dates[] = wp_date('Y-m-d', $cursor);
+            $next = strtotime('+1 day', $cursor);
+
+            if (! is_int($next) || $next <= $cursor) {
+                break;
+            }
+
+            $cursor = $next;
+        }
+
+        return $dates;
+    }
+
+    private function calculateHabitStreakFromHistory(array $habit_history, string $today): int
+    {
+        if ($habit_history === []) {
+            return 0;
+        }
+
+        $today_ts = strtotime($today);
+
+        if (! is_int($today_ts)) {
+            return 0;
+        }
+
+        $date_set = array_fill_keys(array_keys($habit_history), true);
+        $streak = 0;
+
+        for ($offset = 0; $offset < self::HISTORY_DAYS; $offset++) {
+            $date = wp_date('Y-m-d', strtotime('-' . $offset . ' days', $today_ts));
+
+            if (! isset($date_set[$date])) {
+                break;
+            }
+
+            $streak++;
+        }
+
+        return $streak;
+    }
+
+    private function countCompletedFromHistoryMap(array $history_map): int
+    {
+        $count = 0;
+
+        foreach ($history_map as $habit_history) {
+            if (! is_array($habit_history)) {
+                continue;
+            }
+
+            $count += count($habit_history);
+        }
+
+        return $count;
+    }
+
+    private function countActiveDaysFromHistoryMap(array $history_map): int
+    {
+        $dates = [];
+
+        foreach ($history_map as $habit_history) {
+            if (! is_array($habit_history)) {
+                continue;
+            }
+
+            foreach ($habit_history as $date => $flag) {
+                unset($flag);
+                $dates[(string) $date] = true;
+            }
+        }
+
+        return count($dates);
     }
 
     private function buildHistoryDates(string $today, int $days): array
