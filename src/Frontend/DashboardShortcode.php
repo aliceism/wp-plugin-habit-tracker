@@ -203,7 +203,24 @@ final class DashboardShortcode
 
     private function renderMetricsCards(array $metrics): void
     {
+        $current_month_label = wp_date('F Y');
+        $current_day = (int) wp_date('j');
+        $days_in_month = max(1, (int) wp_date('t'));
+        $month_progress_percent = (int) round(($current_day / $days_in_month) * 100);
+        $month_progress_percent = max(0, min(100, $month_progress_percent));
+
         $cards = [
+            [
+                'class' => 'month',
+                'label' => '',
+                'value' => $month_progress_percent,
+                'stat' => $current_month_label,
+                'meta' => sprintf(
+                    esc_html__('Day %1$d of %2$d', 'habit-tracker'),
+                    $current_day,
+                    $days_in_month
+                ),
+            ],
             [
                 'class' => 'momentum',
                 'label' => __('Momentum', 'habit-tracker'),
@@ -226,16 +243,6 @@ final class DashboardShortcode
                 'meta' => __('Checked habits for today.', 'habit-tracker'),
             ],
             [
-                'class' => 'month',
-                'label' => __('Monthly Progress', 'habit-tracker'),
-                'value' => (int) $metrics['monthly_consistency_percent'],
-                'stat' => sprintf(
-                    esc_html__('%d%% complete', 'habit-tracker'),
-                    (int) $metrics['monthly_consistency_percent']
-                ),
-                'meta' => __('Completed checks for the last 30 days.', 'habit-tracker'),
-            ],
-            [
                 'class' => 'coverage',
                 'label' => __('Active Days', 'habit-tracker'),
                 'value' => (int) $metrics['active_days_percent'],
@@ -255,7 +262,9 @@ final class DashboardShortcode
                     <span><?php echo esc_html((string) (int) $card['value']); ?>%</span>
                 </div>
                 <div class="habit-tracker-metric-content">
-                    <p class="app-metric__label"><?php echo esc_html((string) $card['label']); ?></p>
+                    <?php if ((string) ($card['label'] ?? '') !== '') : ?>
+                        <p class="app-metric__label"><?php echo esc_html((string) $card['label']); ?></p>
+                    <?php endif; ?>
                     <h2 class="app-metric__value"><?php echo esc_html((string) $card['stat']); ?></h2>
                     <p class="app-metric__meta"><?php echo esc_html((string) $card['meta']); ?></p>
                 </div>
@@ -282,14 +291,7 @@ final class DashboardShortcode
             <article class="card app-card habit-tracker-dashboard-panel habit-tracker-dashboard-panel--all habit-tracker-month-table-panel">
                 <div class="habit-tracker-dashboard-panel__header">
                     <p class="app-card__eyebrow"><?php esc_html_e('Check-ins', 'habit-tracker'); ?></p>
-                    <h3>
-                        <?php
-                        printf(
-                            esc_html__('Monthly Habit Grid - %s', 'habit-tracker'),
-                            esc_html($context['month_label'])
-                        );
-                        ?>
-                    </h3>
+                    <h3><?php esc_html_e('Monthly Habit Grid', 'habit-tracker'); ?></h3>
                 </div>
 
                 <?php if ($month_rows === []) : ?>
