@@ -316,7 +316,7 @@ final class HabitsShortcode
                                             aria-label="<?php esc_attr_e('Remove from dashboard stack', 'habit-tracker'); ?>"
                                             title="<?php esc_attr_e('Remove from dashboard stack', 'habit-tracker'); ?>"
                                         >
-                                            &times;
+                                            <span class="habit-tracker-stack-item__remove-glyph" aria-hidden="true"></span>
                                         </button>
                                     </form>
                                 </div>
