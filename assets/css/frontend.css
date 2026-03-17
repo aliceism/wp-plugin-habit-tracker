@@ -619,11 +619,13 @@ body.page-template-page-habits-php .app-page-header__subtitle {
 
 .habit-tracker-month-table-wrap {
     overflow: hidden;
-    border: 1px solid rgba(148, 163, 184, 0.24);
+    border: 0;
     border-radius: 14px;
     background:
-        radial-gradient(circle at top right, rgba(59, 130, 246, 0.07), transparent 38%),
-        linear-gradient(180deg, rgba(4, 9, 18, 0.94), rgba(3, 7, 14, 0.98));
+        radial-gradient(circle at 88% 12%, rgba(59, 130, 246, 0.16), transparent 42%),
+        radial-gradient(circle at 12% 90%, rgba(192, 38, 211, 0.1), transparent 48%),
+        linear-gradient(180deg, rgba(20, 30, 52, 0.66), rgba(9, 14, 24, 0.52));
+    box-shadow: none;
     padding: 0.4rem;
 }
 
@@ -716,7 +718,6 @@ body.page-template-page-habits-php .app-page-header__subtitle {
     font-size: 0.88rem;
     font-weight: 500;
     padding-left: 1.3rem;
-    background: rgba(15, 23, 42, 0.42);
     border-left: 0;
     border-top-left-radius: 8px;
     border-bottom-left-radius: 8px;
@@ -742,7 +743,6 @@ body.page-template-page-habits-php .app-page-header__subtitle {
     min-width: 0;
     max-width: none;
     padding: 0.3rem 0.32rem;
-    background: rgba(15, 23, 42, 0.42);
     border-top-right-radius: 8px;
     border-bottom-right-radius: 8px;
     transition: background-color 0.25s ease, box-shadow 0.25s ease;
@@ -764,6 +764,11 @@ body.page-template-page-habits-php .app-page-header__subtitle {
 
 .habit-tracker-month-row {
     --ht-dashboard-accent-rgb: 148, 163, 184;
+}
+
+.habit-tracker-month-row > th,
+.habit-tracker-month-row > td {
+    background: rgba(15, 23, 42, 0.42);
 }
 
 .habit-tracker-month-row--mind {
