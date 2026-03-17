@@ -259,14 +259,15 @@ body.page-template-page-habits-php .app-page-header__subtitle {
     display: grid;
     gap: 1rem;
     padding: 1.15rem;
-    border: 1px solid rgba(148, 163, 184, 0.18);
+    border: 1px solid rgba(var(--ht-accent-rgb), 0.3);
     border-radius: 16px;
     background:
-        radial-gradient(circle at top right, rgba(var(--ht-accent-rgb), 0.2), transparent 40%),
-        linear-gradient(175deg, rgba(17, 24, 39, 0.96), rgba(7, 11, 20, 0.97));
+        radial-gradient(circle at 88% 14%, rgba(var(--ht-accent-rgb), 0.24), transparent 40%),
+        radial-gradient(circle at 10% 92%, rgba(var(--ht-accent-rgb), 0.1), transparent 44%),
+        linear-gradient(180deg, rgba(16, 23, 40, 0.96), rgba(7, 11, 20, 0.98));
     box-shadow:
-        0 16px 34px rgba(0, 0, 0, 0.26),
-        0 0 18px rgba(var(--ht-accent-rgb), 0.08);
+        0 16px 38px rgba(0, 0, 0, 0.26),
+        0 0 22px rgba(var(--ht-accent-rgb), 0.14);
     overflow: hidden;
 }
 
@@ -278,7 +279,11 @@ body.page-template-page-habits-php .app-page-header__subtitle {
     right: 1rem;
     height: 2px;
     border-radius: 999px;
-    background: linear-gradient(90deg, rgba(var(--ht-accent-rgb), 0.92), rgba(139, 92, 246, 0.9));
+    background: linear-gradient(
+        90deg,
+        rgba(var(--ht-accent-rgb), 0.95),
+        rgba(var(--ht-accent-rgb), 0.35)
+    );
 }
 
 .habit-tracker-block__header {
@@ -298,7 +303,7 @@ body.page-template-page-habits-php .app-page-header__subtitle {
 }
 
 .habit-tracker-block--stack {
-    --ht-accent-rgb: 59, 130, 246;
+    --ht-accent-rgb: 139, 92, 246;
 }
 
 .habit-tracker-block--shared,

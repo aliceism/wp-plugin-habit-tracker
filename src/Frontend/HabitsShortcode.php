@@ -255,7 +255,7 @@ final class HabitsShortcode
         }
 
         return sprintf(
-            '<section class="habit-tracker-block habit-tracker-logged-out"><p class="app-card__eyebrow">%s</p><h3>%s</h3><p>%s</p><a class="btn btn-primary" href="%s">%s</a></section>',
+            '<article class="card app-card habit-tracker-block habit-tracker-logged-out"><p class="app-card__eyebrow">%s</p><h3>%s</h3><p>%s</p><a class="btn btn-primary" href="%s">%s</a></article>',
             esc_html__('Habits Access', 'habit-tracker'),
             esc_html__('Log In To Build Your Stack', 'habit-tracker'),
             esc_html__('You need an account to add shared habits and create custom habits for your dashboard.', 'habit-tracker'),
@@ -287,7 +287,7 @@ final class HabitsShortcode
     private function renderStackSection(array $user_dashboard_habits): void
     {
         ?>
-        <section class="habit-tracker-block habit-tracker-block--stack">
+        <article class="card app-card habit-tracker-block habit-tracker-block--stack">
             <div class="habit-tracker-block__header">
                 <p class="app-card__eyebrow"><?php esc_html_e('Dashboard Stack', 'habit-tracker'); ?></p>
                 <h3><?php esc_html_e('Your Active Habits', 'habit-tracker'); ?></h3>
@@ -325,7 +325,7 @@ final class HabitsShortcode
                     <?php endforeach; ?>
                 </ul>
             <?php endif; ?>
-        </section>
+        </article>
         <?php
     }
 
@@ -340,7 +340,7 @@ final class HabitsShortcode
         ];
 
         ?>
-        <section class="habit-tracker-block habit-tracker-block--shared">
+        <article class="card app-card habit-tracker-block habit-tracker-block--shared">
             <div class="habit-tracker-block__header">
                 <p class="app-card__eyebrow"><?php esc_html_e('Habits', 'habit-tracker'); ?></p>
                 <h3><?php esc_html_e('Pick Habits For Your Lab', 'habit-tracker'); ?></h3>
@@ -485,14 +485,14 @@ final class HabitsShortcode
                     </form>
                 </div>
             </div>
-        </section>
+        </article>
         <?php
     }
 
     private function renderCustomSection(string $redirect_url): void
     {
         ?>
-        <section class="habit-tracker-block habit-tracker-block--custom">
+        <article class="card app-card habit-tracker-block habit-tracker-block--custom">
             <div class="habit-tracker-block__header">
                 <p class="app-card__eyebrow"><?php esc_html_e('Custom Habit', 'habit-tracker'); ?></p>
                 <h3><?php esc_html_e('Create One Just For You', 'habit-tracker'); ?></h3>
@@ -523,7 +523,7 @@ final class HabitsShortcode
                     <?php esc_html_e('Add Custom Habit', 'habit-tracker'); ?>
                 </button>
             </form>
-        </section>
+        </article>
         <?php
     }
 
