@@ -288,7 +288,7 @@ final class DashboardShortcode
 
         ?>
         <div class="habit-tracker-dashboard-panels habit-tracker-month-layout">
-            <article class="card app-card habit-tracker-dashboard-panel habit-tracker-dashboard-panel--all habit-tracker-month-table-panel">
+            <article class="card app-card habit-tracker-dashboard-panel habit-tracker-month-table-panel">
                 <div class="habit-tracker-dashboard-panel__header">
                     <p class="app-card__eyebrow"><?php esc_html_e('Check-ins', 'habit-tracker'); ?></p>
                     <h3><?php esc_html_e('Monthly Habit Grid', 'habit-tracker'); ?></h3>
@@ -391,26 +391,22 @@ final class DashboardShortcode
                         <ul class="habit-tracker-ranking-list">
                             <?php foreach ($top_habits as $top_habit) : ?>
                                 <li class="habit-tracker-ranking-item habit-tracker-ranking-item--<?php echo esc_attr($top_habit['category']); ?>">
-                                    <div class="habit-tracker-ranking-item__head">
-                                        <span class="habit-tracker-ranking-item__name"><?php echo esc_html($top_habit['name']); ?></span>
-                                        <span class="habit-tracker-ranking-item__value">
-                                            <?php
-                                            printf(
-                                                esc_html__('%1$d/%2$d', 'habit-tracker'),
-                                                (int) $top_habit['completed'],
-                                                (int) $context['days_elapsed']
-                                            );
-                                            ?>
+                                    <span class="habit-tracker-ranking-item__name"><?php echo esc_html($top_habit['name']); ?></span>
+                                    <span
+                                        class="habit-tracker-ranking-meter"
+                                        aria-label="<?php echo esc_attr(sprintf(esc_html__('%1$d of %2$d days completed', 'habit-tracker'), (int) $top_habit['completed'], (int) $context['days_elapsed'])); ?>"
+                                    >
+                                        <span class="habit-tracker-ranking-meter__fill<?php echo ((int) $top_habit['progress_percent'] > 0) ? ' has-value' : ''; ?>" style="width: <?php echo esc_attr((string) (int) $top_habit['progress_percent']); ?>%;">
+                                            <span class="habit-tracker-ranking-meter__count"><?php echo esc_html((string) (int) $top_habit['progress_percent']); ?>%</span>
                                         </span>
-                                    </div>
-                                    <span class="habit-tracker-progress-bar"><span style="width: <?php echo esc_attr((string) (int) $top_habit['percent']); ?>%;"></span></span>
+                                    </span>
                                 </li>
                             <?php endforeach; ?>
                         </ul>
                     <?php endif; ?>
                 </article>
 
-                <article class="card app-card habit-tracker-dashboard-side habit-tracker-month-side-card">
+                <article class="card app-card habit-tracker-dashboard-side habit-tracker-month-side-card habit-tracker-month-side-card--streaks">
                     <div class="habit-tracker-dashboard-panel__header">
                         <p class="app-card__eyebrow"><?php esc_html_e('Active Streaks', 'habit-tracker'); ?></p>
                         <h3><?php esc_html_e('Current Run', 'habit-tracker'); ?></h3>
@@ -423,13 +419,13 @@ final class DashboardShortcode
                             <?php foreach ($active_streaks as $streak_row) : ?>
                                 <li class="habit-tracker-streak-item habit-tracker-streak-item--<?php echo esc_attr($streak_row['category']); ?>">
                                     <span class="habit-tracker-streak-item__name"><?php echo esc_html($streak_row['name']); ?></span>
-                                    <span class="habit-tracker-streak-item__value">
-                                        <?php
-                                        printf(
-                                            esc_html(_n('%d day', '%d days', (int) $streak_row['streak'], 'habit-tracker')),
-                                            (int) $streak_row['streak']
-                                        );
-                                        ?>
+                                    <span
+                                        class="habit-tracker-streak-meter"
+                                        aria-label="<?php echo esc_attr(sprintf(_n('%d day streak', '%d days streak', (int) $streak_row['streak'], 'habit-tracker'), (int) $streak_row['streak'])); ?>"
+                                    >
+                                        <span class="habit-tracker-streak-meter__fill" style="width: <?php echo esc_attr((string) (int) $streak_row['streak_percent']); ?>%;">
+                                            <span class="habit-tracker-streak-meter__count"><?php echo esc_html((string) (int) $streak_row['streak']); ?></span>
+                                        </span>
                                     </span>
                                 </li>
                             <?php endforeach; ?>
@@ -795,7 +791,22 @@ final class DashboardShortcode
             return (int) $right['streak'] <=> (int) $left['streak'];
         });
 
-        return array_slice($active, 0, 8);
+        $active = array_slice($active, 0, 8);
+
+        if ($active === []) {
+            return [];
+        }
+
+        $max_streak = max(array_map(static function (array $row): int {
+            return max(1, (int) ($row['streak'] ?? 0));
+        }, $active));
+
+        foreach ($active as &$row) {
+            $row['streak_percent'] = (int) round((((int) ($row['streak'] ?? 0)) / $max_streak) * 100);
+        }
+        unset($row);
+
+        return $active;
     }
 
     private function buildCurrentMonthDates(string $today): array
