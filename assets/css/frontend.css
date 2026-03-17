@@ -528,6 +528,15 @@ body.page-template-page-habits-php .app-page-header__subtitle {
 }
 
 .habit-tracker-dashboard-metrics .app-metric {
+    position: relative;
+    border: 1px solid rgba(var(--ht-metric-rgb), 0.3);
+    background:
+        radial-gradient(circle at 88% 14%, rgba(var(--ht-metric-rgb), 0.24), transparent 40%),
+        radial-gradient(circle at 10% 92%, rgba(var(--ht-metric-rgb), 0.1), transparent 44%),
+        linear-gradient(180deg, rgba(16, 23, 40, 0.96), rgba(7, 11, 20, 0.98));
+    box-shadow:
+        0 16px 38px rgba(0, 0, 0, 0.26),
+        0 0 22px rgba(var(--ht-metric-rgb), 0.14);
     overflow: hidden;
 }
 
