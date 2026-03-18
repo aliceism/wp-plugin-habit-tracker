@@ -73,7 +73,7 @@ body.page-template-page-habits-php .app-page-header::before {
         rgba(59, 130, 246, 0.98),
         rgba(192, 38, 211, 0.95),
         rgba(236, 72, 153, 0.92),
-        rgba(255, 176, 32, 0.9),
+        rgba(34, 255, 136, 0.9),
         rgba(34, 255, 136, 0.88)
     );
     background-size: 220% 100%;
@@ -194,7 +194,7 @@ body.page-template-page-habits-php .app-page-header__subtitle {
         rgba(59, 130, 246, 0.98),
         rgba(192, 38, 211, 0.95),
         rgba(236, 72, 153, 0.92),
-        rgba(255, 176, 32, 0.9),
+        rgba(34, 255, 136, 0.9),
         rgba(34, 255, 136, 0.88)
     );
     background-size: 220% 100%;
@@ -487,7 +487,7 @@ body.page-template-page-habits-php .app-page-header__subtitle {
 }
 
 .habit-tracker-stack-item--life {
-    --ht-stack-accent-rgb: 255, 176, 32;
+    --ht-stack-accent-rgb: 34, 255, 136;
 }
 
 .habit-tracker-stack-item--custom {
@@ -529,7 +529,7 @@ body.page-template-page-habits-php .app-page-header__subtitle {
 }
 
 .habit-tracker-metric-card--coverage {
-    --ht-metric-rgb: 255, 176, 32;
+    --ht-metric-rgb: 34, 255, 136;
 }
 
 .habit-tracker-dashboard-metrics .app-metric {
@@ -798,7 +798,7 @@ body.page-template-page-habits-php .app-page-header__subtitle {
 }
 
 .habit-tracker-month-row--life {
-    --ht-dashboard-accent-rgb: 255, 176, 32;
+    --ht-dashboard-accent-rgb: 34, 255, 136;
 }
 
 .habit-tracker-month-row--custom {
@@ -968,7 +968,7 @@ body.page-template-page-habits-php .app-page-header__subtitle {
 }
 
 .habit-tracker-streak-item--life {
-    --ht-dashboard-accent-rgb: 255, 176, 32;
+    --ht-dashboard-accent-rgb: 34, 255, 136;
 }
 
 .habit-tracker-streak-item--custom {
@@ -1064,7 +1064,7 @@ body.page-template-page-habits-php .app-page-header__subtitle {
 }
 
 .habit-tracker-dashboard-panel--life {
-    --ht-dashboard-accent-rgb: 255, 176, 32;
+    --ht-dashboard-accent-rgb: 34, 255, 136;
 }
 
 .habit-tracker-dashboard-panel--all {
@@ -1206,7 +1206,7 @@ body.page-template-page-habits-php .app-page-header__subtitle {
 }
 
 .habit-tracker-checkin-form--life {
-    --ht-dashboard-accent-rgb: 255, 176, 32;
+    --ht-dashboard-accent-rgb: 34, 255, 136;
 }
 
 .habit-tracker-insights-section {
@@ -1295,7 +1295,7 @@ body.page-template-page-habits-php .app-page-header__subtitle {
 }
 
 .habit-tracker-ranking-item--life {
-    --ht-dashboard-accent-rgb: 255, 176, 32;
+    --ht-dashboard-accent-rgb: 34, 255, 136;
 }
 
 .habit-tracker-ranking-item--custom {
@@ -1557,7 +1557,7 @@ body.page-template-page-habits-php .app-page-header__subtitle {
 }
 
 .habit-tracker-category-card--life {
-    --ht-card-accent-rgb: 255, 176, 32;
+    --ht-card-accent-rgb: 34, 255, 136;
 }
 
 .habit-tracker-category-card--custom {
@@ -1655,7 +1655,7 @@ body.page-template-page-habits-php .app-page-header__subtitle {
 }
 
 .habit-tracker-modal__panel--life {
-    --ht-modal-accent-rgb: 255, 176, 32;
+    --ht-modal-accent-rgb: 34, 255, 136;
 }
 
 .habit-tracker-modal__panel--custom {
