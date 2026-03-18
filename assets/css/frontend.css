@@ -1928,7 +1928,8 @@ body.page-template-page-habits-php .app-page-header__subtitle {
 }
 
 .habit-tracker-field input,
-.habit-tracker-field textarea {
+.habit-tracker-field textarea,
+.habit-tracker-field .habit-tracker-field-select {
     width: 100%;
     min-height: 46px;
     padding: 0.75rem 0.9rem;
@@ -1938,6 +1939,17 @@ body.page-template-page-habits-php .app-page-header__subtitle {
     color: var(--ht-text-primary);
     font: inherit;
     transition: border-color 0.3s ease, box-shadow 0.3s ease, background-color 0.3s ease;
+}
+
+.habit-tracker-field .habit-tracker-field-select {
+    appearance: none;
+    -webkit-appearance: none;
+    padding-right: 2.15rem;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none'%3E%3Cpath d='M4 6.25L8 10.25L12 6.25' stroke='%23e2e8f0' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.8rem center;
+    background-size: 0.78rem;
+    cursor: pointer;
 }
 
 .habit-tracker-field textarea {
@@ -1951,7 +1963,8 @@ body.page-template-page-habits-php .app-page-header__subtitle {
 }
 
 .habit-tracker-field input:focus-visible,
-.habit-tracker-field textarea:focus-visible {
+.habit-tracker-field textarea:focus-visible,
+.habit-tracker-field .habit-tracker-field-select:focus-visible {
     outline: 2px solid rgba(59, 130, 246, 0.2);
     outline-offset: 0;
     border-color: rgba(59, 130, 246, 0.56);

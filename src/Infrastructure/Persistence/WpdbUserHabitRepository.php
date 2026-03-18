@@ -68,6 +68,8 @@ final class WpdbUserHabitRepository
             return 0;
         }
 
+        [$frequency_type, $target_count, $target_days_mask] = $this->resolveCustomFrequencyConfig($data);
+
         $timestamp = current_time('mysql');
         $inserted = $this->wpdb->insert(
             $this->user_habits_table,
@@ -78,9 +80,9 @@ final class WpdbUserHabitRepository
                 'name'               => $data['name'],
                 'category'           => $data['category'],
                 'description'        => $data['description'],
-                'frequency_type'     => 'daily',
-                'target_count'       => 1,
-                'target_days_mask'   => 127,
+                'frequency_type'     => $frequency_type,
+                'target_count'       => $target_count,
+                'target_days_mask'   => $target_days_mask,
                 'start_date'         => wp_date('Y-m-d'),
                 'position'           => $this->nextPosition($user_id),
                 'is_active'          => 1,
@@ -201,6 +203,17 @@ final class WpdbUserHabitRepository
         );
 
         return $inserted === false ? 'error' : 'created';
+    }
+
+    private function resolveCustomFrequencyConfig(array $data): array
+    {
+        $target_per_week = isset($data['target_per_week']) ? (int) $data['target_per_week'] : 7;
+
+        if ($target_per_week >= 1 && $target_per_week <= 7) {
+            return ['weekly', $target_per_week, 127];
+        }
+
+        return ['daily', 1, 127];
     }
 
     private function resolveFrequencyConfig(object $habit, array $frequency_override): array

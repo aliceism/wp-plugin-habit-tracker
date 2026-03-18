@@ -197,6 +197,11 @@ final class HabitsShortcode
         $name = sanitize_text_field(wp_unslash($_POST['name'] ?? ''));
         $category = sanitize_text_field(wp_unslash($_POST['category'] ?? ''));
         $description = sanitize_textarea_field(wp_unslash($_POST['description'] ?? ''));
+        $target_per_week = isset($_POST['target_per_week']) ? (int) wp_unslash($_POST['target_per_week']) : 7;
+
+        if ($target_per_week < 1 || $target_per_week > 7) {
+            $target_per_week = 7;
+        }
 
         if ($name === '') {
             $this->redirectWithNotice('custom-name-required');
@@ -208,6 +213,7 @@ final class HabitsShortcode
                 'name' => $name,
                 'category' => $category,
                 'description' => $description,
+                'target_per_week' => $target_per_week,
             ]
         );
 
@@ -509,6 +515,21 @@ final class HabitsShortcode
                             <textarea id="habit-tracker-custom-description" name="description" rows="3"></textarea>
                         </div>
 
+                        <div class="habit-tracker-field">
+                            <label for="habit-tracker-custom-target-per-week-modal"><?php esc_html_e('Weekly Goal', 'habit-tracker'); ?></label>
+                            <select
+                                id="habit-tracker-custom-target-per-week-modal"
+                                name="target_per_week"
+                                class="habit-tracker-field-select"
+                            >
+                                <?php foreach ($this->targetPerWeekOptions() as $target_option) : ?>
+                                    <option value="<?php echo esc_attr((string) $target_option); ?>" <?php selected($target_option, 7); ?>>
+                                        <?php echo esc_html($this->formatTargetPerWeekLabel($target_option)); ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+
                         <button type="submit" class="btn btn-primary">
                             <?php esc_html_e('Add Custom Habit', 'habit-tracker'); ?>
                         </button>
@@ -547,6 +568,21 @@ final class HabitsShortcode
                 <div class="habit-tracker-field">
                     <label for="habit-tracker-custom-description"><?php esc_html_e('Description', 'habit-tracker'); ?></label>
                     <textarea id="habit-tracker-custom-description" name="description" rows="3"></textarea>
+                </div>
+
+                <div class="habit-tracker-field">
+                    <label for="habit-tracker-custom-target-per-week"><?php esc_html_e('Weekly Goal', 'habit-tracker'); ?></label>
+                    <select
+                        id="habit-tracker-custom-target-per-week"
+                        name="target_per_week"
+                        class="habit-tracker-field-select"
+                    >
+                        <?php foreach ($this->targetPerWeekOptions() as $target_option) : ?>
+                            <option value="<?php echo esc_attr((string) $target_option); ?>" <?php selected($target_option, 7); ?>>
+                                <?php echo esc_html($this->formatTargetPerWeekLabel($target_option)); ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
                 </div>
 
                 <button type="submit" class="btn btn-primary">
