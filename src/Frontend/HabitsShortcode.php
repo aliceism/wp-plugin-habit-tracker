@@ -356,7 +356,6 @@ final class HabitsShortcode
                 <p class="app-card__eyebrow"><?php esc_html_e('Habits', 'habit-tracker'); ?></p>
                 <h3><?php esc_html_e('Pick Habits For Your Lab', 'habit-tracker'); ?></h3>
             </div>
-            <p class="habit-tracker-block__intro"><?php esc_html_e('Choose a category to open the habits list for that area.', 'habit-tracker'); ?></p>
 
             <div class="habit-tracker-category-grid">
                 <?php foreach ($categories as $category_key => $category_label) : ?>

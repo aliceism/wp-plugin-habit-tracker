@@ -291,6 +291,12 @@ body.page-template-page-habits-php .app-page-header__subtitle {
     gap: 0.35rem;
 }
 
+.habit-tracker-block--stack .habit-tracker-block__header,
+.habit-tracker-block--shared .habit-tracker-block__header {
+    min-height: 5rem;
+    align-content: start;
+}
+
 .habit-tracker-block__header > h3 {
     margin: 0;
     color: var(--ht-text-primary);
@@ -366,18 +372,29 @@ body.page-template-page-habits-php .app-page-header__subtitle {
 }
 
 .habit-tracker-habits__stack {
+    --ht-stack-gap: 0.65rem;
     display: grid;
-    gap: 0.65rem;
+    gap: var(--ht-stack-gap);
     margin: 0;
     padding: 0;
     list-style: none;
-    max-height: calc((58px * 6) + (0.65rem * 5));
+    max-height: calc((58px * 7) + (0.65rem * 6));
     overflow-y: auto;
     overflow-x: hidden;
     padding-right: 0.18rem;
     overscroll-behavior: contain;
     scrollbar-width: thin;
     scrollbar-color: rgba(148, 163, 184, 0.4) transparent;
+}
+
+.habit-tracker-habits__stack > li:first-child {
+    margin-top: 0;
+}
+
+.habit-tracker-block--stack .habit-tracker-habits__stack,
+.habit-tracker-block--stack .habit-tracker-empty-state,
+.habit-tracker-block--shared .habit-tracker-category-grid {
+    margin-top: 0;
 }
 
 .habit-tracker-stack-item {
@@ -1572,7 +1589,7 @@ body.page-template-page-habits-php .app-page-header__subtitle {
 }
 
 .habit-tracker-category-card--custom {
-    --ht-card-accent-rgb: 139, 92, 246;
+    --ht-card-accent-rgb: 59, 130, 246;
     grid-column: 1 / -1;
     min-height: 138px;
     padding-bottom: 3.25rem;
@@ -1580,24 +1597,20 @@ body.page-template-page-habits-php .app-page-header__subtitle {
     gap: 0.45rem;
     justify-items: center;
     text-align: center;
-    border-color: rgba(139, 92, 246, 0.36);
+    border-color: rgba(148, 163, 184, 0.22);
     background:
-        radial-gradient(circle at 14% 16%, rgba(59, 130, 246, 0.24), transparent 44%),
-        radial-gradient(circle at 86% 20%, rgba(192, 38, 211, 0.22), transparent 42%),
-        radial-gradient(circle at 66% 88%, rgba(236, 72, 153, 0.2), transparent 42%),
-        radial-gradient(circle at 24% 90%, rgba(34, 255, 136, 0.18), transparent 40%),
+        radial-gradient(circle at top right, rgba(59, 130, 246, 0.2), transparent 44%),
+        radial-gradient(circle at 14% 16%, rgba(192, 38, 211, 0.18), transparent 42%),
+        radial-gradient(circle at 68% 84%, rgba(236, 72, 153, 0.16), transparent 42%),
+        radial-gradient(circle at 24% 90%, rgba(34, 255, 136, 0.16), transparent 40%),
         linear-gradient(180deg, rgba(17, 24, 39, 0.94), rgba(10, 16, 28, 0.95));
-    box-shadow:
-        0 14px 28px rgba(0, 0, 0, 0.28),
-        0 0 18px rgba(59, 130, 246, 0.12),
-        0 0 20px rgba(192, 38, 211, 0.12);
 }
 
 .habit-tracker-category-card--custom::after {
     content: "+";
     left: 50%;
     right: auto;
-    bottom: 0.7rem;
+    bottom: 2rem;
     transform: translateX(-50%);
     border-color: rgba(139, 92, 246, 0.42);
     color: #ffffff;
@@ -2013,6 +2026,61 @@ body.habit-tracker-modal-open {
 @media (min-width: 768px) {
     .habit-tracker-block {
         padding: 1.35rem 1.3rem 1.25rem;
+    }
+
+    .habit-tracker-block--stack .habit-tracker-habits__stack,
+    .habit-tracker-block--shared .habit-tracker-category-grid {
+        height: 29.3rem;
+    }
+
+    .habit-tracker-block--stack .habit-tracker-habits__stack {
+        max-height: 29.3rem;
+        grid-template-rows: none;
+        grid-auto-rows: calc((100% - (var(--ht-stack-gap) * 6)) / 7);
+        align-content: stretch;
+    }
+
+    .habit-tracker-block--stack .habit-tracker-habits__stack > .habit-tracker-stack-item {
+        min-height: 0;
+        height: 100%;
+    }
+
+    .habit-tracker-block--shared .habit-tracker-category-grid {
+        max-height: 29.3rem;
+        grid-template-rows: repeat(2, minmax(0, 1fr)) minmax(0, 1.35fr);
+        align-content: stretch;
+        align-items: stretch;
+        overflow-y: auto;
+        overflow-x: hidden;
+        padding-right: 0.18rem;
+        overscroll-behavior: contain;
+        scrollbar-width: thin;
+        scrollbar-color: rgba(148, 163, 184, 0.4) transparent;
+    }
+
+    .habit-tracker-block--shared .habit-tracker-category-card {
+        min-height: 0;
+        height: 100%;
+    }
+
+    .habit-tracker-block--shared .habit-tracker-category-card--custom {
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        text-align: center;
+        gap: 0.45rem;
+    }
+
+    .habit-tracker-block--shared .habit-tracker-category-card--custom .habit-tracker-category-card__label,
+    .habit-tracker-block--shared .habit-tracker-category-card--custom .habit-tracker-category-card__meta {
+        margin-right: 0;
+    }
+
+    .habit-tracker-block--shared .habit-tracker-category-card--custom .habit-tracker-category-card__cta {
+        margin-top: 0;
+        margin-inline: auto;
     }
 
     .habit-tracker-modal__panel {
