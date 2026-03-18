@@ -774,7 +774,7 @@ final class DashboardShortcode
             return (int) $right['completed'] <=> (int) $left['completed'];
         });
 
-        return array_slice($rows, 0, 5);
+        return $rows;
     }
 
     private function buildActiveStreaks(array $rows): array
@@ -790,8 +790,6 @@ final class DashboardShortcode
 
             return (int) $right['streak'] <=> (int) $left['streak'];
         });
-
-        $active = array_slice($active, 0, 8);
 
         if ($active === []) {
             return [];
