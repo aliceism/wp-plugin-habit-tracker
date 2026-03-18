@@ -116,7 +116,7 @@ final class WpdbUserHabitRepository
         return (int) $this->wpdb->insert_id;
     }
 
-    public function addSharedHabitForUser(int $user_id, object $habit): string
+    public function addSharedHabitForUser(int $user_id, object $habit, array $frequency_override = []): string
     {
         if ($user_id <= 0) {
             return 'error';
@@ -127,6 +127,8 @@ final class WpdbUserHabitRepository
         if ($habit_id <= 0) {
             return 'error';
         }
+
+        [$frequency_type, $target_count, $target_days_mask] = $this->resolveFrequencyConfig($habit, $frequency_override);
 
         $existing = $this->findByUserAndHabitId($user_id, $habit_id);
 
@@ -142,9 +144,9 @@ final class WpdbUserHabitRepository
                     'name'             => (string) $habit->name,
                     'category'         => (string) $habit->category,
                     'description'      => (string) $habit->description,
-                    'frequency_type'   => (string) $habit->default_frequency_type,
-                    'target_count'     => (int) $habit->default_target_count,
-                    'target_days_mask' => (int) $habit->default_target_days_mask,
+                    'frequency_type'   => $frequency_type,
+                    'target_count'     => $target_count,
+                    'target_days_mask' => $target_days_mask,
                     'is_active'        => 1,
                     'archived_at'      => null,
                     'updated_at'       => current_time('mysql'),
@@ -167,9 +169,9 @@ final class WpdbUserHabitRepository
                 'name'               => (string) $habit->name,
                 'category'           => (string) $habit->category,
                 'description'        => (string) $habit->description,
-                'frequency_type'     => (string) $habit->default_frequency_type,
-                'target_count'       => (int) $habit->default_target_count,
-                'target_days_mask'   => (int) $habit->default_target_days_mask,
+                'frequency_type'     => $frequency_type,
+                'target_count'       => $target_count,
+                'target_days_mask'   => $target_days_mask,
                 'start_date'         => wp_date('Y-m-d'),
                 'position'           => $this->nextPosition($user_id),
                 'is_active'          => 1,
@@ -199,6 +201,22 @@ final class WpdbUserHabitRepository
         );
 
         return $inserted === false ? 'error' : 'created';
+    }
+
+    private function resolveFrequencyConfig(object $habit, array $frequency_override): array
+    {
+        $frequency_type = $this->normalizeFrequencyType((string) ($habit->default_frequency_type ?? 'daily'));
+        $target_count = $this->normalizeTargetCount((int) ($habit->default_target_count ?? 1));
+        $target_days_mask = $this->normalizeTargetDaysMask((int) ($habit->default_target_days_mask ?? 127));
+        $target_per_week = isset($frequency_override['target_per_week']) ? (int) $frequency_override['target_per_week'] : 0;
+
+        if ($target_per_week >= 1 && $target_per_week <= 7) {
+            $frequency_type = 'weekly';
+            $target_count = $target_per_week;
+            $target_days_mask = 127;
+        }
+
+        return [$frequency_type, $target_count, $target_days_mask];
     }
 
     public function archiveActiveByIdForUser(int $user_id, int $user_habit_id): string
@@ -257,5 +275,20 @@ final class WpdbUserHabitRepository
         $max_position = (int) $this->wpdb->get_var($sql);
 
         return $max_position + 1;
+    }
+
+    private function normalizeFrequencyType(string $frequency_type): string
+    {
+        return sanitize_key($frequency_type) === 'weekly' ? 'weekly' : 'daily';
+    }
+
+    private function normalizeTargetCount(int $target_count): int
+    {
+        return max(1, min(7, $target_count));
+    }
+
+    private function normalizeTargetDaysMask(int $target_days_mask): int
+    {
+        return max(0, min(127, $target_days_mask));
     }
 }

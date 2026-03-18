@@ -21,6 +21,8 @@ final class DashboardShortcode
     private const CATEGORY_BODY = 'body';
     private const CATEGORY_PRODUCTIVITY = 'productivity';
     private const CATEGORY_LIFE = 'life';
+    private const FREQUENCY_DAILY = 'daily';
+    private const FREQUENCY_WEEKLY = 'weekly';
     private const HISTORY_DAYS = 30;
 
     private WpdbUserHabitRepository $user_habits;
@@ -278,9 +280,9 @@ final class DashboardShortcode
         $ordered_habits = $this->flattenHabitsByCategory($context['habits_by_category']);
         $month_rows = $this->buildMonthRows(
             $ordered_habits,
+            $context['month_dates'],
             $context['month_map'],
             $context['history_map'],
-            (int) $context['days_elapsed'],
             $context['today']
         );
         $top_habits = $this->buildTopHabits($month_rows);
@@ -364,7 +366,7 @@ final class DashboardShortcode
                                                 printf(
                                                     esc_html__('%1$d/%2$d · %3$d%%', 'habit-tracker'),
                                                     (int) $row['completed'],
-                                                    (int) $context['days_elapsed'],
+                                                    (int) $row['target_total'],
                                                     (int) $row['progress_percent']
                                                 );
                                                 ?>
@@ -394,7 +396,7 @@ final class DashboardShortcode
                                     <span class="habit-tracker-ranking-item__name"><?php echo esc_html($top_habit['name']); ?></span>
                                     <span
                                         class="habit-tracker-ranking-meter"
-                                        aria-label="<?php echo esc_attr(sprintf(esc_html__('%1$d of %2$d days completed', 'habit-tracker'), (int) $top_habit['completed'], (int) $context['days_elapsed'])); ?>"
+                                        aria-label="<?php echo esc_attr(sprintf(esc_html__('%1$d of %2$d target completions', 'habit-tracker'), (int) $top_habit['completed'], (int) $top_habit['target_total'])); ?>"
                                     >
                                         <span class="habit-tracker-ranking-meter__fill<?php echo ((int) $top_habit['progress_percent'] > 0) ? ' has-value' : ''; ?>" style="width: <?php echo esc_attr((string) (int) $top_habit['progress_percent']); ?>%;">
                                             <span class="habit-tracker-ranking-meter__count"><?php echo esc_html((string) (int) $top_habit['progress_percent']); ?>%</span>
@@ -417,11 +419,17 @@ final class DashboardShortcode
                     <?php else : ?>
                         <ul class="habit-tracker-streak-list">
                             <?php foreach ($active_streaks as $streak_row) : ?>
+                                <?php
+                                $streak_unit = (string) ($streak_row['streak_unit'] ?? 'day');
+                                $streak_aria = $streak_unit === 'week'
+                                    ? sprintf(_n('%d week streak', '%d weeks streak', (int) $streak_row['streak'], 'habit-tracker'), (int) $streak_row['streak'])
+                                    : sprintf(_n('%d day streak', '%d days streak', (int) $streak_row['streak'], 'habit-tracker'), (int) $streak_row['streak']);
+                                ?>
                                 <li class="habit-tracker-streak-item habit-tracker-streak-item--<?php echo esc_attr($streak_row['category']); ?>">
                                     <span class="habit-tracker-streak-item__name"><?php echo esc_html($streak_row['name']); ?></span>
                                     <span
                                         class="habit-tracker-streak-meter"
-                                        aria-label="<?php echo esc_attr(sprintf(_n('%d day streak', '%d days streak', (int) $streak_row['streak'], 'habit-tracker'), (int) $streak_row['streak'])); ?>"
+                                        aria-label="<?php echo esc_attr($streak_aria); ?>"
                                     >
                                         <span class="habit-tracker-streak-meter__fill" style="width: <?php echo esc_attr((string) (int) $streak_row['streak_percent']); ?>%;">
                                             <span class="habit-tracker-streak-meter__count"><?php echo esc_html((string) (int) $streak_row['streak']); ?></span>
@@ -716,44 +724,70 @@ final class DashboardShortcode
 
     private function buildMonthRows(
         array $ordered_habits,
+        array $month_dates,
         array $month_map,
-        array $streak_map,
-        int $days_elapsed,
+        array $history_map,
         string $today
     ): array {
         $rows = [];
-        $days_elapsed = max(1, $days_elapsed);
+        $month_start = $month_dates[0] ?? $today;
+        $month_end = $month_dates !== [] ? $month_dates[count($month_dates) - 1] : $today;
 
         foreach ($ordered_habits as $entry) {
             $habit = $entry['habit'];
             $category_key = (string) $entry['category'];
             $habit_id = isset($habit->id) ? (int) $habit->id : 0;
-            $habit_month_map = $month_map[$habit_id] ?? [];
+            $habit_month_map = isset($month_map[$habit_id]) && is_array($month_map[$habit_id])
+                ? $month_map[$habit_id]
+                : [];
+            $habit_history = isset($history_map[$habit_id]) && is_array($history_map[$habit_id])
+                ? $history_map[$habit_id]
+                : [];
+            $habit_start_date = $this->resolveHabitStartDate($habit, $month_start);
+            $tracking_start = $habit_start_date > $month_start ? $habit_start_date : $month_start;
+            $frequency_type = $this->normalizeFrequencyType((string) ($habit->frequency_type ?? self::FREQUENCY_DAILY));
+            $target_count = $this->normalizeTargetCount((int) ($habit->target_count ?? 1));
+            $target_days_mask = $this->normalizeTargetDaysMask((int) ($habit->target_days_mask ?? 127));
+            $filtered_month_map = $this->filterDateMapForRange($habit_month_map, $tracking_start, $month_end);
+            $filtered_history_map = $this->filterDateMapForRange($habit_history, $habit_start_date, $today);
             $completed = 0;
 
-            if (is_array($habit_month_map)) {
-                foreach ($habit_month_map as $date => $is_checked) {
-                    unset($is_checked);
+            foreach ($filtered_month_map as $date => $is_checked) {
+                unset($is_checked);
 
-                    if ((string) $date <= $today) {
-                        $completed++;
-                    }
+                if ((string) $date <= $today) {
+                    $completed++;
                 }
-            } else {
-                $habit_month_map = [];
             }
 
-            $progress_percent = (int) round(($completed / $days_elapsed) * 100);
+            $target_total = $this->calculateTargetForPeriod(
+                $frequency_type,
+                $target_count,
+                $target_days_mask,
+                $tracking_start,
+                $today
+            );
+            $progress_percent = $target_total > 0 ? (int) round(($completed / $target_total) * 100) : 0;
             $progress_percent = max(0, min(100, $progress_percent));
 
             $rows[] = [
                 'id' => $habit_id,
                 'name' => (string) ($habit->name ?? ''),
                 'category' => $category_key,
-                'day_map' => $habit_month_map,
+                'frequency_type' => $frequency_type,
+                'target_count' => $target_count,
+                'target_total' => $target_total,
+                'day_map' => $filtered_month_map,
                 'completed' => $completed,
                 'progress_percent' => $progress_percent,
-                'streak' => $this->calculateHabitStreakFromHistory($streak_map[$habit_id] ?? [], $today),
+                'streak' => $this->calculateHabitStreakFromHistory(
+                    $filtered_history_map,
+                    $today,
+                    $frequency_type,
+                    $target_count,
+                    $target_days_mask
+                ),
+                'streak_unit' => $frequency_type === self::FREQUENCY_WEEKLY ? 'week' : 'day',
             ];
         }
 
@@ -763,15 +797,19 @@ final class DashboardShortcode
     private function buildTopHabits(array $rows): array
     {
         usort($rows, static function (array $left, array $right): int {
-            if ($left['completed'] === $right['completed']) {
-                if ($left['streak'] === $right['streak']) {
-                    return strcmp((string) $left['name'], (string) $right['name']);
+            if ($left['progress_percent'] === $right['progress_percent']) {
+                if ($left['completed'] === $right['completed']) {
+                    if ($left['streak'] === $right['streak']) {
+                        return strcmp((string) $left['name'], (string) $right['name']);
+                    }
+
+                    return (int) $right['streak'] <=> (int) $left['streak'];
                 }
 
-                return (int) $right['streak'] <=> (int) $left['streak'];
+                return (int) $right['completed'] <=> (int) $left['completed'];
             }
 
-            return (int) $right['completed'] <=> (int) $left['completed'];
+            return (int) $right['progress_percent'] <=> (int) $left['progress_percent'];
         });
 
         return $rows;
@@ -785,7 +823,11 @@ final class DashboardShortcode
 
         usort($active, static function (array $left, array $right): int {
             if ($left['streak'] === $right['streak']) {
-                return (int) $right['completed'] <=> (int) $left['completed'];
+                if ($left['progress_percent'] === $right['progress_percent']) {
+                    return strcmp((string) $left['name'], (string) $right['name']);
+                }
+
+                return (int) $right['progress_percent'] <=> (int) $left['progress_percent'];
             }
 
             return (int) $right['streak'] <=> (int) $left['streak'];
@@ -868,12 +910,34 @@ final class DashboardShortcode
         return $dates;
     }
 
-    private function calculateHabitStreakFromHistory(array $habit_history, string $today): int
-    {
+    private function calculateHabitStreakFromHistory(
+        array $habit_history,
+        string $today,
+        string $frequency_type,
+        int $target_count,
+        int $target_days_mask
+    ): int {
         if ($habit_history === []) {
             return 0;
         }
 
+        if ($frequency_type === self::FREQUENCY_WEEKLY) {
+            return $this->calculateWeeklyHabitStreakFromHistory(
+                $habit_history,
+                $today,
+                $target_count,
+                $target_days_mask
+            );
+        }
+
+        return $this->calculateDailyHabitStreakFromHistory($habit_history, $today, $target_days_mask);
+    }
+
+    private function calculateDailyHabitStreakFromHistory(
+        array $habit_history,
+        string $today,
+        int $target_days_mask
+    ): int {
         $today_ts = strtotime($today);
 
         if (! is_int($today_ts)) {
@@ -884,7 +948,17 @@ final class DashboardShortcode
         $streak = 0;
 
         for ($offset = 0; $offset < self::HISTORY_DAYS; $offset++) {
-            $date = wp_date('Y-m-d', strtotime('-' . $offset . ' days', $today_ts));
+            $timestamp = strtotime('-' . $offset . ' days', $today_ts);
+
+            if (! is_int($timestamp)) {
+                break;
+            }
+
+            $date = wp_date('Y-m-d', $timestamp);
+
+            if (! $this->isDateEnabledByMask($date, $target_days_mask)) {
+                continue;
+            }
 
             if (! isset($date_set[$date])) {
                 break;
@@ -894,6 +968,190 @@ final class DashboardShortcode
         }
 
         return $streak;
+    }
+
+    private function calculateWeeklyHabitStreakFromHistory(
+        array $habit_history,
+        string $today,
+        int $target_count,
+        int $target_days_mask
+    ): int {
+        $today_ts = strtotime($today);
+
+        if (! is_int($today_ts)) {
+            return 0;
+        }
+
+        $weekly_counts = $this->buildWeeklyCompletionCounts($habit_history, $target_days_mask);
+
+        if ($weekly_counts === []) {
+            return 0;
+        }
+
+        $streak = 0;
+        $max_weeks = max(1, (int) ceil(self::HISTORY_DAYS / 7));
+
+        for ($offset = 0; $offset < $max_weeks; $offset++) {
+            $week_ts = strtotime('-' . $offset . ' weeks', $today_ts);
+
+            if (! is_int($week_ts)) {
+                break;
+            }
+
+            $week_key = wp_date('o-W', $week_ts);
+            $completed = (int) ($weekly_counts[$week_key] ?? 0);
+
+            if ($completed < $target_count) {
+                break;
+            }
+
+            $streak++;
+        }
+
+        return $streak;
+    }
+
+    private function buildWeeklyCompletionCounts(array $habit_history, int $target_days_mask): array
+    {
+        $counts = [];
+
+        foreach ($habit_history as $date => $is_checked) {
+            unset($is_checked);
+            $date_key = (string) $date;
+
+            if (! $this->isDateEnabledByMask($date_key, $target_days_mask)) {
+                continue;
+            }
+
+            $date_ts = strtotime($date_key);
+
+            if (! is_int($date_ts)) {
+                continue;
+            }
+
+            $week_key = wp_date('o-W', $date_ts);
+
+            if (! isset($counts[$week_key])) {
+                $counts[$week_key] = 0;
+            }
+
+            $counts[$week_key]++;
+        }
+
+        return $counts;
+    }
+
+    private function calculateTargetForPeriod(
+        string $frequency_type,
+        int $target_count,
+        int $target_days_mask,
+        string $start_date,
+        string $end_date
+    ): int {
+        $period_dates = $this->buildDateRange($start_date, $end_date);
+
+        if ($period_dates === []) {
+            return 0;
+        }
+
+        if ($frequency_type === self::FREQUENCY_WEEKLY) {
+            $weeks = [];
+
+            foreach ($period_dates as $period_date) {
+                if (! $this->isDateEnabledByMask($period_date, $target_days_mask)) {
+                    continue;
+                }
+
+                $period_ts = strtotime($period_date);
+
+                if (! is_int($period_ts)) {
+                    continue;
+                }
+
+                $weeks[wp_date('o-W', $period_ts)] = true;
+            }
+
+            return count($weeks) * $target_count;
+        }
+
+        $eligible_days = 0;
+
+        foreach ($period_dates as $period_date) {
+            if ($this->isDateEnabledByMask($period_date, $target_days_mask)) {
+                $eligible_days++;
+            }
+        }
+
+        return $eligible_days * $target_count;
+    }
+
+    private function resolveHabitStartDate(object $habit, string $fallback): string
+    {
+        $start_date = isset($habit->start_date) ? (string) $habit->start_date : '';
+        $start_ts = strtotime($start_date);
+
+        if ($start_date === '' || ! is_int($start_ts)) {
+            return $fallback;
+        }
+
+        return wp_date('Y-m-d', $start_ts);
+    }
+
+    private function filterDateMapForRange(array $date_map, string $start_date, string $end_date): array
+    {
+        if ($date_map === []) {
+            return [];
+        }
+
+        $filtered = [];
+
+        foreach ($date_map as $date => $is_checked) {
+            unset($is_checked);
+            $date_key = (string) $date;
+
+            if ($date_key < $start_date || $date_key > $end_date) {
+                continue;
+            }
+
+            $filtered[$date_key] = true;
+        }
+
+        return $filtered;
+    }
+
+    private function isDateEnabledByMask(string $date, int $target_days_mask): bool
+    {
+        if ($target_days_mask <= 0 || $target_days_mask >= 127) {
+            return true;
+        }
+
+        $date_ts = strtotime($date);
+
+        if (! is_int($date_ts)) {
+            return true;
+        }
+
+        $weekday = (int) wp_date('w', $date_ts);
+        $weekday_bit = 1 << $weekday;
+
+        return ($target_days_mask & $weekday_bit) !== 0;
+    }
+
+    private function normalizeFrequencyType(string $frequency_type): string
+    {
+        return sanitize_key($frequency_type) === self::FREQUENCY_WEEKLY
+            ? self::FREQUENCY_WEEKLY
+            : self::FREQUENCY_DAILY;
+    }
+
+    private function normalizeTargetCount(int $target_count): int
+    {
+        return max(1, min(7, $target_count));
+    }
+
+    private function normalizeTargetDaysMask(int $target_days_mask): int
+    {
+        return max(0, min(127, $target_days_mask));
     }
 
     private function countCompletedFromHistoryMap(array $history_map): int

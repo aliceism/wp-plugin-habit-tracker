@@ -147,6 +147,11 @@ final class HabitsShortcode
         check_admin_referer(self::ADD_SHARED_ACTION);
 
         $habit_id = isset($_POST['habit_id']) ? absint(wp_unslash($_POST['habit_id'])) : 0;
+        $target_per_week = isset($_POST['target_per_week']) ? (int) wp_unslash($_POST['target_per_week']) : 0;
+
+        if ($target_per_week < 1 || $target_per_week > 7) {
+            $target_per_week = 0;
+        }
 
         if ($habit_id <= 0) {
             $this->redirectWithNotice('shared-invalid');
@@ -162,7 +167,13 @@ final class HabitsShortcode
             $this->redirectWithNotice('shared-invalid');
         }
 
-        $result = $this->user_habits->addSharedHabitForUser(get_current_user_id(), $shared_habit);
+        $result = $this->user_habits->addSharedHabitForUser(
+            get_current_user_id(),
+            $shared_habit,
+            [
+                'target_per_week' => $target_per_week,
+            ]
+        );
 
         if ($result === 'created') {
             $this->redirectWithNotice('shared-added');
@@ -401,7 +412,12 @@ final class HabitsShortcode
                         <?php else : ?>
                             <ul class="habit-tracker-modal-list">
                                 <?php foreach ($grouped_habits[$category_key] as $shared_habit) : ?>
-                                    <?php $is_added = isset($active_shared_habit_ids[(int) $shared_habit->id]); ?>
+                                    <?php
+                                    $shared_habit_id = (int) $shared_habit->id;
+                                    $is_added = isset($active_shared_habit_ids[$shared_habit_id]);
+                                    $target_select_id = 'habit-tracker-weekly-target-' . $shared_habit_id;
+                                    $default_target_per_week = $this->resolveDefaultTargetPerWeek($shared_habit);
+                                    ?>
                                     <li class="habit-tracker-modal-list__item">
                                         <div class="habit-tracker-modal-list__content">
                                             <h4><?php echo esc_html((string) $shared_habit->name); ?></h4>
@@ -416,11 +432,26 @@ final class HabitsShortcode
                                                     <?php esc_html_e('Already Added', 'habit-tracker'); ?>
                                                 </span>
                                             <?php else : ?>
-                                                <form class="habit-tracker-inline-form" method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
+                                                <form class="habit-tracker-inline-form habit-tracker-inline-form--add" method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
                                                     <input type="hidden" name="action" value="<?php echo esc_attr(self::ADD_SHARED_ACTION); ?>">
                                                     <input type="hidden" name="habit_id" value="<?php echo esc_attr((string) $shared_habit->id); ?>">
                                                     <input type="hidden" name="redirect_to" value="<?php echo esc_url($redirect_url); ?>">
                                                     <?php wp_nonce_field(self::ADD_SHARED_ACTION); ?>
+                                                    <label class="screen-reader-text" for="<?php echo esc_attr($target_select_id); ?>">
+                                                        <?php esc_html_e('Times per week', 'habit-tracker'); ?>
+                                                    </label>
+                                                    <select
+                                                        id="<?php echo esc_attr($target_select_id); ?>"
+                                                        name="target_per_week"
+                                                        class="habit-tracker-add-frequency"
+                                                        aria-label="<?php esc_attr_e('Times per week', 'habit-tracker'); ?>"
+                                                    >
+                                                        <?php foreach ($this->targetPerWeekOptions() as $target_option) : ?>
+                                                            <option value="<?php echo esc_attr((string) $target_option); ?>" <?php selected($target_option, $default_target_per_week); ?>>
+                                                                <?php echo esc_html($this->formatTargetPerWeekLabel($target_option)); ?>
+                                                            </option>
+                                                        <?php endforeach; ?>
+                                                    </select>
                                                     <button
                                                         type="submit"
                                                         class="btn btn-ghost habit-tracker-add-btn"
@@ -707,5 +738,34 @@ final class HabitsShortcode
         }
 
         return $grouped;
+    }
+
+    private function resolveDefaultTargetPerWeek(object $shared_habit): int
+    {
+        $frequency_type = sanitize_key((string) ($shared_habit->default_frequency_type ?? 'daily'));
+        $target_count = max(1, min(7, (int) ($shared_habit->default_target_count ?? 1)));
+
+        if ($frequency_type === 'weekly') {
+            return $target_count;
+        }
+
+        return 7;
+    }
+
+    private function formatTargetPerWeekLabel(int $target_option): string
+    {
+        if ($target_option >= 7) {
+            return __('Everyday', 'habit-tracker');
+        }
+
+        return sprintf(
+            _n('%d day per week', '%d days per week', $target_option, 'habit-tracker'),
+            $target_option
+        );
+    }
+
+    private function targetPerWeekOptions(): array
+    {
+        return [7, 1, 2, 3, 4, 5, 6];
     }
 }
