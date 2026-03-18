@@ -303,12 +303,12 @@ body.page-template-page-habits-php .app-page-header__subtitle {
 }
 
 .habit-tracker-block--stack {
-    --ht-accent-rgb: 139, 92, 246;
+    --ht-accent-rgb: 59, 130, 246;
 }
 
 .habit-tracker-block--shared,
 .habit-tracker-block--custom {
-    --ht-accent-rgb: 139, 92, 246;
+    --ht-accent-rgb: 59, 130, 246;
 }
 
 .habit-tracker-block > :last-child {
