@@ -5,6 +5,7 @@ namespace HabitTracker;
 use HabitTracker\Admin\HabitAdminPage;
 use HabitTracker\Frontend\DashboardShortcode;
 use HabitTracker\Frontend\HabitsShortcode;
+use HabitTracker\Frontend\ProgressShortcode;
 use HabitTracker\Infrastructure\Database\Migrations;
 use HabitTracker\Infrastructure\Persistence\WpdbCheckinRepository;
 use HabitTracker\Infrastructure\Persistence\WpdbHabitRepository;
@@ -29,6 +30,8 @@ final class Plugin
     private ?HabitsShortcode $habits_shortcode = null;
 
     private ?DashboardShortcode $dashboard_shortcode = null;
+
+    private ?ProgressShortcode $progress_shortcode = null;
 
     public static function instance(): self
     {
@@ -93,7 +96,9 @@ final class Plugin
     {
         if ($this->habits_shortcode instanceof HabitsShortcode) {
             if ($this->dashboard_shortcode instanceof DashboardShortcode) {
-                return;
+                if ($this->progress_shortcode instanceof ProgressShortcode) {
+                    return;
+                }
             }
         }
 
@@ -105,6 +110,11 @@ final class Plugin
         if (! $this->dashboard_shortcode instanceof DashboardShortcode) {
             $this->dashboard_shortcode = new DashboardShortcode($this->userHabits(), $this->checkins());
             $this->dashboard_shortcode->register();
+        }
+
+        if (! $this->progress_shortcode instanceof ProgressShortcode) {
+            $this->progress_shortcode = new ProgressShortcode($this->userHabits(), $this->checkins());
+            $this->progress_shortcode->register();
         }
     }
 }
