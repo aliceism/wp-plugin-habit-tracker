@@ -3,6 +3,7 @@
 namespace HabitTracker;
 
 use HabitTracker\Admin\HabitAdminPage;
+use HabitTracker\Frontend\AuthShortcode;
 use HabitTracker\Frontend\DashboardShortcode;
 use HabitTracker\Frontend\HabitsShortcode;
 use HabitTracker\Frontend\ProgressShortcode;
@@ -32,6 +33,8 @@ final class Plugin
     private ?DashboardShortcode $dashboard_shortcode = null;
 
     private ?ProgressShortcode $progress_shortcode = null;
+
+    private ?AuthShortcode $auth_shortcode = null;
 
     public static function instance(): self
     {
@@ -97,7 +100,9 @@ final class Plugin
         if ($this->habits_shortcode instanceof HabitsShortcode) {
             if ($this->dashboard_shortcode instanceof DashboardShortcode) {
                 if ($this->progress_shortcode instanceof ProgressShortcode) {
-                    return;
+                    if ($this->auth_shortcode instanceof AuthShortcode) {
+                        return;
+                    }
                 }
             }
         }
@@ -115,6 +120,11 @@ final class Plugin
         if (! $this->progress_shortcode instanceof ProgressShortcode) {
             $this->progress_shortcode = new ProgressShortcode($this->userHabits(), $this->checkins());
             $this->progress_shortcode->register();
+        }
+
+        if (! $this->auth_shortcode instanceof AuthShortcode) {
+            $this->auth_shortcode = new AuthShortcode();
+            $this->auth_shortcode->register();
         }
     }
 }
