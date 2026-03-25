@@ -44,6 +44,8 @@ final class DashboardShortcode
 
         add_action('admin_post_' . self::TOGGLE_CHECKIN_ACTION, [$this, 'handleToggleCheckin']);
         add_action('admin_post_nopriv_' . self::TOGGLE_CHECKIN_ACTION, [$this, 'handleUnauthorized']);
+        add_action('wp_ajax_' . self::TOGGLE_CHECKIN_ACTION, [$this, 'handleToggleCheckinAjax']);
+        add_action('wp_ajax_nopriv_' . self::TOGGLE_CHECKIN_ACTION, [$this, 'handleToggleCheckinAjax']);
     }
 
     public function render(array $atts = [], ?string $content = null, string $shortcode_tag = ''): string
@@ -151,6 +153,83 @@ final class DashboardShortcode
         }
 
         $this->redirectWithNotice('checkin-failed');
+    }
+
+    public function handleToggleCheckinAjax(): void
+    {
+        if (! is_user_logged_in()) {
+            $login_url = wp_login_url($this->getCurrentUrl());
+
+            if (function_exists('habitlab_get_page_url_by_slug')) {
+                $theme_login_url = habitlab_get_page_url_by_slug('login');
+
+                if (is_string($theme_login_url) && $theme_login_url !== '') {
+                    $login_url = $theme_login_url;
+                }
+            }
+
+            wp_send_json_error(
+                [
+                    'notice' => $this->getNoticePayload('checkin-invalid'),
+                    'login_url' => $login_url,
+                ],
+                401
+            );
+        }
+
+        $is_nonce_valid = check_ajax_referer(self::TOGGLE_CHECKIN_ACTION, '_wpnonce', false);
+
+        if (! $is_nonce_valid) {
+            wp_send_json_error(
+                [
+                    'notice' => $this->getNoticePayload('checkin-failed'),
+                ],
+                403
+            );
+        }
+
+        $user_habit_id = isset($_POST['user_habit_id']) ? absint(wp_unslash($_POST['user_habit_id'])) : 0;
+
+        if ($user_habit_id <= 0) {
+            wp_send_json_error(
+                [
+                    'notice' => $this->getNoticePayload('checkin-invalid'),
+                ],
+                400
+            );
+        }
+
+        $result = $this->checkins->toggleCompletedForToday(get_current_user_id(), $user_habit_id);
+
+        if ($result !== 'checked' && $result !== 'unchecked') {
+            $notice = ($result === 'invalid' || $result === 'not-found')
+                ? 'checkin-invalid'
+                : 'checkin-failed';
+
+            wp_send_json_error(
+                [
+                    'notice' => $this->getNoticePayload($notice),
+                ],
+                400
+            );
+        }
+
+        $context = $this->getContext();
+        $month_rows = $this->buildMonthRowsFromContext($context);
+        $top_habits = $this->buildTopHabits($month_rows);
+        $active_streaks = $this->buildActiveStreaks($month_rows);
+
+        wp_send_json_success(
+            [
+                'checked' => $result === 'checked',
+                'row' => $this->buildMonthRowPayload($month_rows, $user_habit_id),
+                'metrics_html' => $this->renderMetricsCardsHtml($context['metrics']),
+                'side_html' => $this->renderSidePanelsHtml($top_habits, $active_streaks),
+                'notice' => $this->getNoticePayload(
+                    $result === 'checked' ? 'checkin-checked' : 'checkin-unchecked'
+                ),
+            ]
+        );
     }
 
     public function handleUnauthorized(): void
@@ -277,14 +356,7 @@ final class DashboardShortcode
 
     private function renderPanels(array $context): void
     {
-        $ordered_habits = $this->flattenHabitsByCategory($context['habits_by_category']);
-        $month_rows = $this->buildMonthRows(
-            $ordered_habits,
-            $context['month_dates'],
-            $context['month_map'],
-            $context['history_map'],
-            $context['today']
-        );
+        $month_rows = $this->buildMonthRowsFromContext($context);
         $top_habits = $this->buildTopHabits($month_rows);
         $active_streaks = $this->buildActiveStreaks($month_rows);
 
@@ -326,7 +398,10 @@ final class DashboardShortcode
                             </thead>
                             <tbody>
                                 <?php foreach ($month_rows as $row) : ?>
-                                    <tr class="habit-tracker-month-row habit-tracker-month-row--<?php echo esc_attr($row['category']); ?>">
+                                    <tr
+                                        class="habit-tracker-month-row habit-tracker-month-row--<?php echo esc_attr($row['category']); ?>"
+                                        data-user-habit-id="<?php echo esc_attr((string) (int) $row['id']); ?>"
+                                    >
                                         <th scope="row" class="habit-tracker-month-habit"><?php echo esc_html($row['name']); ?></th>
 
                                         <?php foreach ($context['month_dates'] as $month_date) : ?>
@@ -362,14 +437,7 @@ final class DashboardShortcode
                                                 <span style="width: <?php echo esc_attr((string) (int) $row['progress_percent']); ?>%;"></span>
                                             </span>
                                             <span class="habit-tracker-month-progress-text">
-                                                <?php
-                                                printf(
-                                                    esc_html__('%1$d/%2$d · %3$d%%', 'habit-tracker'),
-                                                    (int) $row['completed'],
-                                                    (int) $row['target_total'],
-                                                    (int) $row['progress_percent']
-                                                );
-                                                ?>
+                                                <?php echo esc_html($this->formatProgressText($row)); ?>
                                             </span>
                                         </td>
                                     </tr>
@@ -381,68 +449,136 @@ final class DashboardShortcode
             </article>
 
             <div class="habit-tracker-month-side">
-                <article class="card app-card habit-tracker-dashboard-side habit-tracker-month-side-card">
-                    <div class="habit-tracker-dashboard-panel__header">
-                        <p class="app-card__eyebrow"><?php esc_html_e('Top Habits', 'habit-tracker'); ?></p>
-                        <h3><?php esc_html_e('This Month', 'habit-tracker'); ?></h3>
-                    </div>
-
-                    <?php if ($top_habits === []) : ?>
-                        <p class="habit-tracker-empty-state"><?php esc_html_e('No check-ins yet.', 'habit-tracker'); ?></p>
-                    <?php else : ?>
-                        <ul class="habit-tracker-ranking-list">
-                            <?php foreach ($top_habits as $top_habit) : ?>
-                                <li class="habit-tracker-ranking-item habit-tracker-ranking-item--<?php echo esc_attr($top_habit['category']); ?>">
-                                    <span class="habit-tracker-ranking-item__name"><?php echo esc_html($top_habit['name']); ?></span>
-                                    <span
-                                        class="habit-tracker-ranking-meter"
-                                        aria-label="<?php echo esc_attr(sprintf(esc_html__('%1$d of %2$d target completions', 'habit-tracker'), (int) $top_habit['completed'], (int) $top_habit['target_total'])); ?>"
-                                    >
-                                        <span class="habit-tracker-ranking-meter__fill<?php echo ((int) $top_habit['progress_percent'] > 0) ? ' has-value' : ''; ?>" style="width: <?php echo esc_attr((string) (int) $top_habit['progress_percent']); ?>%;">
-                                            <span class="habit-tracker-ranking-meter__count"><?php echo esc_html((string) (int) $top_habit['progress_percent']); ?>%</span>
-                                        </span>
-                                    </span>
-                                </li>
-                            <?php endforeach; ?>
-                        </ul>
-                    <?php endif; ?>
-                </article>
-
-                <article class="card app-card habit-tracker-dashboard-side habit-tracker-month-side-card habit-tracker-month-side-card--streaks">
-                    <div class="habit-tracker-dashboard-panel__header">
-                        <p class="app-card__eyebrow"><?php esc_html_e('Active Streaks', 'habit-tracker'); ?></p>
-                        <h3><?php esc_html_e('Current Run', 'habit-tracker'); ?></h3>
-                    </div>
-
-                    <?php if ($active_streaks === []) : ?>
-                        <p class="habit-tracker-empty-state"><?php esc_html_e('No active streaks right now.', 'habit-tracker'); ?></p>
-                    <?php else : ?>
-                        <ul class="habit-tracker-streak-list">
-                            <?php foreach ($active_streaks as $streak_row) : ?>
-                                <?php
-                                $streak_unit = (string) ($streak_row['streak_unit'] ?? 'day');
-                                $streak_aria = $streak_unit === 'week'
-                                    ? sprintf(_n('%d week streak', '%d weeks streak', (int) $streak_row['streak'], 'habit-tracker'), (int) $streak_row['streak'])
-                                    : sprintf(_n('%d day streak', '%d days streak', (int) $streak_row['streak'], 'habit-tracker'), (int) $streak_row['streak']);
-                                ?>
-                                <li class="habit-tracker-streak-item habit-tracker-streak-item--<?php echo esc_attr($streak_row['category']); ?>">
-                                    <span class="habit-tracker-streak-item__name"><?php echo esc_html($streak_row['name']); ?></span>
-                                    <span
-                                        class="habit-tracker-streak-meter"
-                                        aria-label="<?php echo esc_attr($streak_aria); ?>"
-                                    >
-                                        <span class="habit-tracker-streak-meter__fill" style="width: <?php echo esc_attr((string) (int) $streak_row['streak_percent']); ?>%;">
-                                            <span class="habit-tracker-streak-meter__count"><?php echo esc_html((string) (int) $streak_row['streak']); ?></span>
-                                        </span>
-                                    </span>
-                                </li>
-                            <?php endforeach; ?>
-                        </ul>
-                    <?php endif; ?>
-                </article>
+                <?php $this->renderSidePanelsContent($top_habits, $active_streaks); ?>
             </div>
         </div>
         <?php
+    }
+
+    private function renderSidePanelsContent(array $top_habits, array $active_streaks): void
+    {
+        ?>
+        <article class="card app-card habit-tracker-dashboard-side habit-tracker-month-side-card">
+            <div class="habit-tracker-dashboard-panel__header">
+                <p class="app-card__eyebrow"><?php esc_html_e('Top Habits', 'habit-tracker'); ?></p>
+                <h3><?php esc_html_e('This Month', 'habit-tracker'); ?></h3>
+            </div>
+
+            <?php if ($top_habits === []) : ?>
+                <p class="habit-tracker-empty-state"><?php esc_html_e('No check-ins yet.', 'habit-tracker'); ?></p>
+            <?php else : ?>
+                <ul class="habit-tracker-ranking-list">
+                    <?php foreach ($top_habits as $top_habit) : ?>
+                        <li class="habit-tracker-ranking-item habit-tracker-ranking-item--<?php echo esc_attr($top_habit['category']); ?>">
+                            <span class="habit-tracker-ranking-item__name"><?php echo esc_html($top_habit['name']); ?></span>
+                            <span
+                                class="habit-tracker-ranking-meter"
+                                aria-label="<?php echo esc_attr(sprintf(esc_html__('%1$d of %2$d target completions', 'habit-tracker'), (int) $top_habit['completed'], (int) $top_habit['target_total'])); ?>"
+                            >
+                                <span class="habit-tracker-ranking-meter__fill<?php echo ((int) $top_habit['progress_percent'] > 0) ? ' has-value' : ''; ?>" style="width: <?php echo esc_attr((string) (int) $top_habit['progress_percent']); ?>%;">
+                                    <span class="habit-tracker-ranking-meter__count"><?php echo esc_html((string) (int) $top_habit['progress_percent']); ?>%</span>
+                                </span>
+                            </span>
+                        </li>
+                    <?php endforeach; ?>
+                </ul>
+            <?php endif; ?>
+        </article>
+
+        <article class="card app-card habit-tracker-dashboard-side habit-tracker-month-side-card habit-tracker-month-side-card--streaks">
+            <div class="habit-tracker-dashboard-panel__header">
+                <p class="app-card__eyebrow"><?php esc_html_e('Active Streaks', 'habit-tracker'); ?></p>
+                <h3><?php esc_html_e('Current Run', 'habit-tracker'); ?></h3>
+            </div>
+
+            <?php if ($active_streaks === []) : ?>
+                <p class="habit-tracker-empty-state"><?php esc_html_e('No active streaks right now.', 'habit-tracker'); ?></p>
+            <?php else : ?>
+                <ul class="habit-tracker-streak-list">
+                    <?php foreach ($active_streaks as $streak_row) : ?>
+                        <?php
+                        $streak_unit = (string) ($streak_row['streak_unit'] ?? 'day');
+                        $streak_aria = $streak_unit === 'week'
+                            ? sprintf(_n('%d week streak', '%d weeks streak', (int) $streak_row['streak'], 'habit-tracker'), (int) $streak_row['streak'])
+                            : sprintf(_n('%d day streak', '%d days streak', (int) $streak_row['streak'], 'habit-tracker'), (int) $streak_row['streak']);
+                        ?>
+                        <li class="habit-tracker-streak-item habit-tracker-streak-item--<?php echo esc_attr($streak_row['category']); ?>">
+                            <span class="habit-tracker-streak-item__name"><?php echo esc_html($streak_row['name']); ?></span>
+                            <span
+                                class="habit-tracker-streak-meter"
+                                aria-label="<?php echo esc_attr($streak_aria); ?>"
+                            >
+                                <span class="habit-tracker-streak-meter__fill" style="width: <?php echo esc_attr((string) (int) $streak_row['streak_percent']); ?>%;">
+                                    <span class="habit-tracker-streak-meter__count"><?php echo esc_html((string) (int) $streak_row['streak']); ?></span>
+                                </span>
+                            </span>
+                        </li>
+                    <?php endforeach; ?>
+                </ul>
+            <?php endif; ?>
+        </article>
+        <?php
+    }
+
+    private function renderMetricsCardsHtml(array $metrics): string
+    {
+        ob_start();
+        $this->renderMetricsCards($metrics);
+
+        return (string) ob_get_clean();
+    }
+
+    private function renderSidePanelsHtml(array $top_habits, array $active_streaks): string
+    {
+        ob_start();
+        $this->renderSidePanelsContent($top_habits, $active_streaks);
+
+        return (string) ob_get_clean();
+    }
+
+    private function buildMonthRowsFromContext(array $context): array
+    {
+        $ordered_habits = $this->flattenHabitsByCategory($context['habits_by_category']);
+
+        return $this->buildMonthRows(
+            $ordered_habits,
+            $context['month_dates'],
+            $context['month_map'],
+            $context['history_map'],
+            $context['today']
+        );
+    }
+
+    private function buildMonthRowPayload(array $month_rows, int $user_habit_id): ?array
+    {
+        foreach ($month_rows as $row) {
+            if ((int) ($row['id'] ?? 0) !== $user_habit_id) {
+                continue;
+            }
+
+            return [
+                'id' => (int) $row['id'],
+                'completed' => (int) $row['completed'],
+                'target_total' => (int) $row['target_total'],
+                'progress_percent' => (int) $row['progress_percent'],
+                'progress_text' => $this->formatProgressText($row),
+            ];
+        }
+
+        return null;
+    }
+
+    private function formatProgressText(array $row): string
+    {
+        return sprintf(
+            __(
+                '%1$d/%2$d · %3$d%%',
+                'habit-tracker'
+            ),
+            (int) ($row['completed'] ?? 0),
+            (int) ($row['target_total'] ?? 0),
+            (int) ($row['progress_percent'] ?? 0)
+        );
     }
 
     private function renderNotice(): void
@@ -455,7 +591,21 @@ final class DashboardShortcode
             return;
         }
 
-        $messages = [
+        $messages = $this->getNoticeMessages();
+
+        if (! isset($messages[$notice])) {
+            return;
+        }
+        ?>
+        <div class="<?php echo esc_attr($messages[$notice]['class']); ?>">
+            <p><?php echo esc_html($messages[$notice]['text']); ?></p>
+        </div>
+        <?php
+    }
+
+    private function getNoticeMessages(): array
+    {
+        return [
             'checkin-checked' => [
                 'class' => 'habit-tracker-notice habit-tracker-notice--success',
                 'text' => __('Habit checked for today.', 'habit-tracker'),
@@ -473,15 +623,19 @@ final class DashboardShortcode
                 'text' => __('Could not update check status.', 'habit-tracker'),
             ],
         ];
+    }
 
-        if (! isset($messages[$notice])) {
-            return;
-        }
-        ?>
-        <div class="<?php echo esc_attr($messages[$notice]['class']); ?>">
-            <p><?php echo esc_html($messages[$notice]['text']); ?></p>
-        </div>
-        <?php
+    private function getNoticePayload(string $notice): array
+    {
+        $messages = $this->getNoticeMessages();
+        $fallback = $messages['checkin-failed'];
+        $resolved = $messages[$notice] ?? $fallback;
+
+        return [
+            'key' => $notice,
+            'class' => (string) ($resolved['class'] ?? $fallback['class']),
+            'text' => (string) ($resolved['text'] ?? $fallback['text']),
+        ];
     }
 
     private function enqueueAssets(): void
@@ -511,6 +665,15 @@ final class DashboardShortcode
             $script_version,
             true
         );
+
+        wp_localize_script(
+            'habit-tracker-frontend',
+            'habitTrackerDashboard',
+            [
+                'ajaxUrl' => admin_url('admin-ajax.php'),
+                'toggleAction' => self::TOGGLE_CHECKIN_ACTION,
+            ]
+        );
     }
 
     private function redirectWithNotice(string $notice): void
@@ -527,26 +690,83 @@ final class DashboardShortcode
     {
         $raw_redirect = wp_unslash($_POST['redirect_to'] ?? '');
 
-        if (! is_string($raw_redirect) || $raw_redirect === '') {
+        if (! is_string($raw_redirect) || $raw_redirect === '' || $this->isAdminPostUrl($raw_redirect)) {
+            $raw_redirect = wp_unslash($_POST['_wp_http_referer'] ?? '');
+        }
+
+        if (! is_string($raw_redirect) || $raw_redirect === '' || $this->isAdminPostUrl($raw_redirect)) {
             $raw_redirect = wp_get_referer();
         }
 
-        if (! is_string($raw_redirect) || $raw_redirect === '') {
+        if (! is_string($raw_redirect) || $raw_redirect === '' || $this->isAdminPostUrl($raw_redirect)) {
             $raw_redirect = $this->getCurrentUrl();
         }
 
-        return wp_validate_redirect($raw_redirect, home_url('/'));
+        return wp_validate_redirect($raw_redirect, $this->getDashboardFallbackUrl());
     }
 
     private function getCurrentUrl(): string
     {
-        $request_uri = isset($_SERVER['REQUEST_URI']) ? wp_unslash($_SERVER['REQUEST_URI']) : '/';
+        $request_uri = isset($_SERVER['REQUEST_URI']) ? wp_unslash($_SERVER['REQUEST_URI']) : '';
 
         if (! is_string($request_uri) || $request_uri === '') {
-            return home_url('/');
+            return $this->getDashboardFallbackUrl();
         }
 
-        return home_url($request_uri);
+        $request_path = (string) wp_parse_url($request_uri, PHP_URL_PATH);
+        $request_query = (string) wp_parse_url($request_uri, PHP_URL_QUERY);
+
+        if ($request_path === '') {
+            return $this->getDashboardFallbackUrl();
+        }
+
+        $home_path = (string) wp_parse_url(home_url('/'), PHP_URL_PATH);
+        $home_path = '/' . trim($home_path, '/');
+        $normalized_path = $request_path;
+
+        if ($home_path !== '/' && $home_path !== '') {
+            if ($normalized_path === $home_path) {
+                $normalized_path = '/';
+            } elseif (str_starts_with($normalized_path, $home_path . '/')) {
+                $normalized_path = substr($normalized_path, strlen($home_path));
+            }
+        }
+
+        if ($normalized_path === '' || $normalized_path[0] !== '/') {
+            $normalized_path = '/' . ltrim($normalized_path, '/');
+        }
+
+        $current_url = home_url($normalized_path);
+
+        if ($request_query !== '') {
+            $current_url .= '?' . $request_query;
+        }
+
+        return $current_url;
+    }
+
+    private function isAdminPostUrl(string $url): bool
+    {
+        $path = (string) wp_parse_url($url, PHP_URL_PATH);
+
+        if ($path === '') {
+            return false;
+        }
+
+        return str_ends_with($path, '/wp-admin/admin-post.php');
+    }
+
+    private function getDashboardFallbackUrl(): string
+    {
+        if (function_exists('habitlab_get_page_url_by_slug')) {
+            $theme_dashboard_url = habitlab_get_page_url_by_slug('dashboard');
+
+            if (is_string($theme_dashboard_url) && $theme_dashboard_url !== '') {
+                return $theme_dashboard_url;
+            }
+        }
+
+        return home_url('/');
     }
 
     private function getContext(): array

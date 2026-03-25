@@ -1499,6 +1499,15 @@ body.page-template-page-progress-php .app-page-header__subtitle {
     outline-offset: 2px;
 }
 
+.habit-tracker-month-cell--action.is-loading,
+.habit-tracker-month-cell--action.is-loading:hover,
+.habit-tracker-month-cell--action.is-loading:focus-visible {
+    opacity: 0.72;
+    cursor: wait;
+    transform: none;
+    box-shadow: none;
+}
+
 .habit-tracker-month-cell.is-today {
     outline: 1px solid rgba(var(--ht-dashboard-accent-rgb), 0.9);
     outline-offset: 1px;
