@@ -878,7 +878,9 @@ final class DashboardShortcode
             return 0;
         }
 
-        for ($offset = 0; $offset < $max_days; $offset++) {
+        $start_offset = isset($date_set[$today]) ? 0 : 1;
+
+        for ($offset = $start_offset; $offset < ($max_days + $start_offset); $offset++) {
             $date = wp_date('Y-m-d', strtotime('-' . $offset . ' days', $today_ts));
 
             if (! isset($date_set[$date])) {
@@ -1166,8 +1168,10 @@ final class DashboardShortcode
 
         $date_set = array_fill_keys(array_keys($habit_history), true);
         $streak = 0;
+        $is_today_enabled = $this->isDateEnabledByMask($today, $target_days_mask);
+        $start_offset = ($is_today_enabled && ! isset($date_set[$today])) ? 1 : 0;
 
-        for ($offset = 0; $offset < self::HISTORY_DAYS; $offset++) {
+        for ($offset = $start_offset; $offset < (self::HISTORY_DAYS + $start_offset); $offset++) {
             $timestamp = strtotime('-' . $offset . ' days', $today_ts);
 
             if (! is_int($timestamp)) {
@@ -1210,8 +1214,11 @@ final class DashboardShortcode
 
         $streak = 0;
         $max_weeks = max(1, (int) ceil(self::HISTORY_DAYS / 7));
+        $current_week_key = wp_date('o-W', $today_ts);
+        $current_week_completed = (int) ($weekly_counts[$current_week_key] ?? 0) >= $target_count;
+        $start_offset = $current_week_completed ? 0 : 1;
 
-        for ($offset = 0; $offset < $max_weeks; $offset++) {
+        for ($offset = $start_offset; $offset < ($max_weeks + $start_offset); $offset++) {
             $week_ts = strtotime('-' . $offset . ' weeks', $today_ts);
 
             if (! is_int($week_ts)) {
