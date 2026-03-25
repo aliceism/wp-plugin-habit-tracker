@@ -344,6 +344,10 @@ body.page-template-page-progress-php .app-page-header__subtitle {
     --ht-accent-rgb: 59, 130, 246;
 }
 
+.habit-tracker-block--shared {
+    overflow: visible;
+}
+
 .habit-tracker-block > :last-child {
     margin-bottom: 0;
 }
@@ -419,7 +423,10 @@ body.page-template-page-progress-php .app-page-header__subtitle {
 }
 
 .habit-tracker-block--stack .habit-tracker-habits__stack,
-.habit-tracker-block--stack .habit-tracker-empty-state,
+.habit-tracker-block--stack .habit-tracker-empty-state {
+    margin-top: 0;
+}
+
 .habit-tracker-block--shared .habit-tracker-category-grid {
     margin-top: 0;
 }
@@ -2119,9 +2126,11 @@ body.page-template-page-progress-php .app-page-header__subtitle {
 }
 
 .habit-tracker-category-grid {
+    box-sizing: border-box;
     display: grid;
     gap: 0.85rem;
     margin-top: 0.2rem;
+    padding-top: 0;
     grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
@@ -2167,7 +2176,7 @@ body.page-template-page-progress-php .app-page-header__subtitle {
     box-shadow:
         0 14px 24px rgba(0, 0, 0, 0.28),
         0 0 18px rgba(var(--ht-card-accent-rgb), 0.18);
-    transform: translateY(-3px);
+    transform: translateY(-1px);
 }
 
 .habit-tracker-category-card:focus-visible {
@@ -2763,8 +2772,9 @@ body.habit-tracker-modal-open {
         grid-template-rows: repeat(2, minmax(0, 1fr)) minmax(0, 1.35fr);
         align-content: stretch;
         align-items: stretch;
-        overflow-y: auto;
-        overflow-x: hidden;
+        overflow: visible;
+        padding-top: 0;
+        padding-bottom: 0;
         padding-right: 0.18rem;
         overscroll-behavior: contain;
         scrollbar-width: thin;

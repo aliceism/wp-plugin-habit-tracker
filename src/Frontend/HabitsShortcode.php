@@ -436,13 +436,13 @@ final class HabitsShortcode
         $categories = $this->categoryOptions();
 
         ?>
-        <article class="card app-card habit-tracker-block habit-tracker-block--shared">
+        <article class="card app-card habit-tracker-block habit-tracker-block--shared" style="overflow: visible;">
             <div class="habit-tracker-block__header">
                 <p class="app-card__eyebrow"><?php esc_html_e('Habits', 'habit-tracker'); ?></p>
                 <h3><?php esc_html_e('Pick Habits For Your Lab', 'habit-tracker'); ?></h3>
             </div>
 
-            <div class="habit-tracker-category-grid">
+            <div class="habit-tracker-category-grid" style="overflow: visible;">
                 <?php foreach ($categories as $category_key => $category_label) : ?>
                     <?php $modal_id = 'habit-tracker-modal-' . $category_key; ?>
                     <button
