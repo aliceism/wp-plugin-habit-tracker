@@ -5,10 +5,16 @@
   const HEADER_CLASS = "habit-tracker-page-header";
   const DASHBOARD_HEADER_CLASS = "habit-tracker-dashboard-header";
   const DASHBOARD_TOGGLE_FORM_SELECTOR = ".habit-tracker-month-toggle-form";
+  const DASHBOARD_TOGGLE_ACTION_FALLBACK = "habit_tracker_toggle_checkin";
   const APP_NAV_LINK_SELECTOR = ".app-nav a[href]";
   const PAGE_LOADING_CLASS = "habit-tracker-page-loading";
   const HABITS_STACK_SELECTOR = ".habit-tracker-block--stack";
   const HABITS_SHARED_SELECTOR = ".habit-tracker-block--shared";
+  const HABITS_ACTIONS_FALLBACK = new Set([
+    "habit_tracker_add_shared_habit",
+    "habit_tracker_add_custom_habit",
+    "habit_tracker_remove_user_habit",
+  ]);
 
   let isSpaNavigationInProgress = false;
 
@@ -226,6 +232,49 @@
     return window.habitTrackerDashboard;
   }
 
+  function resolveAjaxUrl(config, form) {
+    if (
+      config &&
+      typeof config.ajaxUrl === "string" &&
+      config.ajaxUrl !== ""
+    ) {
+      return config.ajaxUrl;
+    }
+
+    if (typeof window.ajaxurl === "string" && window.ajaxurl !== "") {
+      return window.ajaxurl;
+    }
+
+    if (!(form instanceof HTMLFormElement)) {
+      return "";
+    }
+
+    const actionAttr = (form.getAttribute("action") || "").trim();
+
+    if (actionAttr === "") {
+      return "";
+    }
+
+    try {
+      const actionUrl = new URL(actionAttr, window.location.href);
+
+      if (/admin-post\.php$/i.test(actionUrl.pathname)) {
+        actionUrl.pathname = actionUrl.pathname.replace(
+          /admin-post\.php$/i,
+          "admin-ajax.php"
+        );
+        actionUrl.search = "";
+        actionUrl.hash = "";
+
+        return actionUrl.toString();
+      }
+    } catch (error) {
+      return "";
+    }
+
+    return "";
+  }
+
   function upsertDashboardNotice(notice) {
     if (
       typeof notice !== "object" ||
@@ -321,12 +370,9 @@
 
   async function submitDashboardCheckinForm(form) {
     const config = getDashboardConfig();
+    const ajaxUrl = resolveAjaxUrl(config, form);
 
-    if (
-      !config ||
-      typeof config.ajaxUrl !== "string" ||
-      config.ajaxUrl === ""
-    ) {
+    if (ajaxUrl === "") {
       form.submit();
       return;
     }
@@ -347,9 +393,11 @@
         config.toggleAction !== ""
       ) {
         formData.set("action", config.toggleAction);
+      } else if (!formData.get("action")) {
+        formData.set("action", DASHBOARD_TOGGLE_ACTION_FALLBACK);
       }
 
-      const response = await fetch(config.ajaxUrl, {
+      const response = await fetch(ajaxUrl, {
         method: "POST",
         body: formData,
         credentials: "same-origin",
@@ -400,16 +448,6 @@
   }
 
   function initDashboardCheckinAjax() {
-    const config = getDashboardConfig();
-
-    if (
-      !config ||
-      typeof config.ajaxUrl !== "string" ||
-      config.ajaxUrl === ""
-    ) {
-      return;
-    }
-
     document.addEventListener("submit", (event) => {
       const target = event.target;
 
@@ -473,6 +511,17 @@
     }
 
     return actions;
+  }
+
+  function getHabitsActionSetWithFallback() {
+    const config = getHabitsConfig();
+    const configuredActions = getHabitsActionSet(config);
+
+    if (configuredActions.size > 0) {
+      return configuredActions;
+    }
+
+    return HABITS_ACTIONS_FALLBACK;
   }
 
   function getFormActionName(form) {
@@ -564,12 +613,9 @@
 
   async function submitHabitsMutationForm(form) {
     const config = getHabitsConfig();
+    const ajaxUrl = resolveAjaxUrl(config, form);
 
-    if (
-      !config ||
-      typeof config.ajaxUrl !== "string" ||
-      config.ajaxUrl === ""
-    ) {
+    if (ajaxUrl === "") {
       form.submit();
       return;
     }
@@ -583,7 +629,7 @@
 
     try {
       const formData = new FormData(form);
-      const response = await fetch(config.ajaxUrl, {
+      const response = await fetch(ajaxUrl, {
         method: "POST",
         body: formData,
         credentials: "same-origin",
@@ -625,15 +671,9 @@
   }
 
   function initHabitsMutationsAjax() {
-    const config = getHabitsConfig();
-    const actionSet = getHabitsActionSet(config);
+    const actionSet = getHabitsActionSetWithFallback();
 
-    if (
-      !config ||
-      typeof config.ajaxUrl !== "string" ||
-      config.ajaxUrl === "" ||
-      actionSet.size === 0
-    ) {
+    if (actionSet.size === 0) {
       return;
     }
 
