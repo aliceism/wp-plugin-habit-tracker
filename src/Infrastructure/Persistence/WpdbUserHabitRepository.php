@@ -10,6 +10,11 @@ if (! defined('ABSPATH')) {
 
 final class WpdbUserHabitRepository
 {
+    private const CATEGORY_MIND = 'mind';
+    private const CATEGORY_BODY = 'body';
+    private const CATEGORY_PRODUCTIVITY = 'productivity';
+    private const CATEGORY_LIFE = 'life';
+
     private \wpdb $wpdb;
 
     private string $user_habits_table;
@@ -69,6 +74,7 @@ final class WpdbUserHabitRepository
         }
 
         [$frequency_type, $target_count, $target_days_mask] = $this->resolveCustomFrequencyConfig($data);
+        $category = $this->normalizeCategoryKey((string) ($data['category'] ?? ''));
 
         $timestamp = current_time('mysql');
         $inserted = $this->wpdb->insert(
@@ -78,7 +84,7 @@ final class WpdbUserHabitRepository
                 'habit_id'           => null,
                 'source_type'        => 'custom',
                 'name'               => $data['name'],
-                'category'           => $data['category'],
+                'category'           => $category,
                 'description'        => $data['description'],
                 'frequency_type'     => $frequency_type,
                 'target_count'       => $target_count,
@@ -131,6 +137,7 @@ final class WpdbUserHabitRepository
         }
 
         [$frequency_type, $target_count, $target_days_mask] = $this->resolveFrequencyConfig($habit, $frequency_override);
+        $category = $this->normalizeCategoryKey((string) ($habit->category ?? ''));
 
         $existing = $this->findByUserAndHabitId($user_id, $habit_id);
 
@@ -144,7 +151,7 @@ final class WpdbUserHabitRepository
                 [
                     'source_type'      => 'habit',
                     'name'             => (string) $habit->name,
-                    'category'         => (string) $habit->category,
+                    'category'         => $category,
                     'description'      => (string) $habit->description,
                     'frequency_type'   => $frequency_type,
                     'target_count'     => $target_count,
@@ -169,7 +176,7 @@ final class WpdbUserHabitRepository
                 'habit_id'           => $habit_id,
                 'source_type'        => 'habit',
                 'name'               => (string) $habit->name,
-                'category'           => (string) $habit->category,
+                'category'           => $category,
                 'description'        => (string) $habit->description,
                 'frequency_type'     => $frequency_type,
                 'target_count'       => $target_count,
@@ -303,5 +310,22 @@ final class WpdbUserHabitRepository
     private function normalizeTargetDaysMask(int $target_days_mask): int
     {
         return max(0, min(127, $target_days_mask));
+    }
+
+    private function normalizeCategoryKey(string $category): string
+    {
+        $normalized = sanitize_key($category);
+        $allowed = [
+            self::CATEGORY_MIND => true,
+            self::CATEGORY_BODY => true,
+            self::CATEGORY_PRODUCTIVITY => true,
+            self::CATEGORY_LIFE => true,
+        ];
+
+        if (isset($allowed[$normalized])) {
+            return $normalized;
+        }
+
+        return self::CATEGORY_LIFE;
     }
 }

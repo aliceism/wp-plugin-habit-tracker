@@ -14,6 +14,10 @@ final class HabitAdminPage
     private const SAVE_ACTION = 'habit_tracker_save_habit';
     private const TOGGLE_ACTION = 'habit_tracker_toggle_habit';
     private const DELETE_ACTION = 'habit_tracker_delete_habit';
+    private const CATEGORY_MIND = 'mind';
+    private const CATEGORY_BODY = 'body';
+    private const CATEGORY_PRODUCTIVITY = 'productivity';
+    private const CATEGORY_LIFE = 'life';
 
     private WpdbHabitRepository $habits;
 
@@ -113,14 +117,18 @@ final class HabitAdminPage
                                 <label for="habit-category"><?php esc_html_e('Category', 'habit-tracker'); ?></label>
                             </th>
                             <td>
-                                <input
+                                <select
                                     id="habit-category"
                                     name="category"
-                                    type="text"
                                     class="regular-text"
-                                    maxlength="100"
-                                    value="<?php echo esc_attr($form_values['category']); ?>"
+                                    required
                                 >
+                                    <?php foreach ($this->categoryOptions() as $category_key => $category_label) : ?>
+                                        <option value="<?php echo esc_attr($category_key); ?>" <?php selected($form_values['category'], $category_key); ?>>
+                                            <?php echo esc_html($category_label); ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
                             </td>
                         </tr>
                         <tr>
@@ -217,7 +225,7 @@ final class HabitAdminPage
                                 <?php endif; ?>
                             </td>
                             <td><code><?php echo esc_html($habit_row->slug); ?></code></td>
-                            <td><?php echo esc_html($habit_row->category !== '' ? $habit_row->category : __('Uncategorized', 'habit-tracker')); ?></td>
+                            <td><?php echo esc_html($this->resolveCategoryLabel((string) $habit_row->category)); ?></td>
                             <td><?php echo esc_html(((int) $habit_row->is_active === 1) ? __('Active', 'habit-tracker') : __('Inactive', 'habit-tracker')); ?></td>
                             <td><?php echo esc_html((string) $assignment_count); ?></td>
                             <td><?php echo esc_html((string) $habit_row->sort_order); ?></td>
@@ -276,7 +284,7 @@ final class HabitAdminPage
 
         $name = sanitize_text_field(wp_unslash($_POST['name'] ?? ''));
         $slug_input = sanitize_text_field(wp_unslash($_POST['slug'] ?? ''));
-        $category = sanitize_text_field(wp_unslash($_POST['category'] ?? ''));
+        $category = $this->normalizeCategoryKey(sanitize_key((string) wp_unslash($_POST['category'] ?? '')));
         $description = sanitize_textarea_field(wp_unslash($_POST['description'] ?? ''));
         $sort_order = max(0, (int) wp_unslash($_POST['sort_order'] ?? 0));
         $is_active = isset($_POST['is_active']) ? 1 : 0;
@@ -381,7 +389,7 @@ final class HabitAdminPage
             return [
                 'name' => '',
                 'slug' => '',
-                'category' => '',
+                'category' => self::CATEGORY_MIND,
                 'description' => '',
                 'sort_order' => '0',
                 'is_active' => '1',
@@ -391,7 +399,7 @@ final class HabitAdminPage
         return [
             'name' => (string) $habit->name,
             'slug' => (string) $habit->slug,
-            'category' => (string) $habit->category,
+            'category' => $this->normalizeCategoryKey((string) $habit->category),
             'description' => (string) $habit->description,
             'sort_order' => (string) $habit->sort_order,
             'is_active' => ((int) $habit->is_active === 1) ? '1' : '0',
@@ -469,5 +477,35 @@ final class HabitAdminPage
 
         wp_safe_redirect($url);
         exit;
+    }
+
+    private function categoryOptions(): array
+    {
+        return [
+            self::CATEGORY_MIND => __('Mind', 'habit-tracker'),
+            self::CATEGORY_BODY => __('Body', 'habit-tracker'),
+            self::CATEGORY_PRODUCTIVITY => __('Productivity', 'habit-tracker'),
+            self::CATEGORY_LIFE => __('Life', 'habit-tracker'),
+        ];
+    }
+
+    private function normalizeCategoryKey(string $category): string
+    {
+        $normalized = sanitize_key($category);
+        $options = $this->categoryOptions();
+
+        if (isset($options[$normalized])) {
+            return $normalized;
+        }
+
+        return self::CATEGORY_LIFE;
+    }
+
+    private function resolveCategoryLabel(string $category): string
+    {
+        $options = $this->categoryOptions();
+        $normalized = $this->normalizeCategoryKey($category);
+
+        return (string) ($options[$normalized] ?? $options[self::CATEGORY_LIFE]);
     }
 }

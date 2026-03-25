@@ -10,6 +10,11 @@ if (! defined('ABSPATH')) {
 
 final class WpdbHabitRepository
 {
+    private const CATEGORY_MIND = 'mind';
+    private const CATEGORY_BODY = 'body';
+    private const CATEGORY_PRODUCTIVITY = 'productivity';
+    private const CATEGORY_LIFE = 'life';
+
     private \wpdb $wpdb;
 
     private string $habits_table;
@@ -65,13 +70,14 @@ final class WpdbHabitRepository
     public function create(array $data, int $created_by_user_id): int
     {
         $timestamp = current_time('mysql');
+        $category = $this->normalizeCategoryKey((string) ($data['category'] ?? ''));
 
         $inserted = $this->wpdb->insert(
             $this->habits_table,
             [
                 'name'                     => $data['name'],
                 'slug'                     => $data['slug'],
-                'category'                 => $data['category'],
+                'category'                 => $category,
                 'description'              => $data['description'],
                 'default_frequency_type'   => $data['default_frequency_type'],
                 'default_target_count'     => $data['default_target_count'],
@@ -111,12 +117,14 @@ final class WpdbHabitRepository
             return false;
         }
 
+        $category = $this->normalizeCategoryKey((string) ($data['category'] ?? ''));
+
         $updated = $this->wpdb->update(
             $this->habits_table,
             [
                 'name'                     => $data['name'],
                 'slug'                     => $data['slug'],
-                'category'                 => $data['category'],
+                'category'                 => $category,
                 'description'              => $data['description'],
                 'default_frequency_type'   => $data['default_frequency_type'],
                 'default_target_count'     => $data['default_target_count'],
@@ -246,5 +254,22 @@ final class WpdbHabitRepository
         }
 
         return (int) $this->wpdb->get_var($sql) > 0;
+    }
+
+    private function normalizeCategoryKey(string $category): string
+    {
+        $normalized = sanitize_key($category);
+        $allowed = [
+            self::CATEGORY_MIND => true,
+            self::CATEGORY_BODY => true,
+            self::CATEGORY_PRODUCTIVITY => true,
+            self::CATEGORY_LIFE => true,
+        ];
+
+        if (isset($allowed[$normalized])) {
+            return $normalized;
+        }
+
+        return self::CATEGORY_LIFE;
     }
 }

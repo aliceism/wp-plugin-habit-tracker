@@ -195,7 +195,7 @@ final class HabitsShortcode
         check_admin_referer(self::ADD_CUSTOM_ACTION);
 
         $name = sanitize_text_field(wp_unslash($_POST['name'] ?? ''));
-        $category = sanitize_text_field(wp_unslash($_POST['category'] ?? ''));
+        $category = $this->normalizeCategoryKey(sanitize_key((string) wp_unslash($_POST['category'] ?? '')));
         $description = sanitize_textarea_field(wp_unslash($_POST['description'] ?? ''));
         $target_per_week = isset($_POST['target_per_week']) ? (int) wp_unslash($_POST['target_per_week']) : 7;
 
@@ -349,12 +349,7 @@ final class HabitsShortcode
     private function renderSharedSection(array $shared_habits, array $active_shared_habit_ids, string $redirect_url): void
     {
         $grouped_habits = $this->groupHabitsByPresetCategory($shared_habits);
-        $categories = [
-            self::CATEGORY_MIND => __('Mind', 'habit-tracker'),
-            self::CATEGORY_BODY => __('Body', 'habit-tracker'),
-            self::CATEGORY_PRODUCTIVITY => __('Productivity', 'habit-tracker'),
-            self::CATEGORY_LIFE => __('Life', 'habit-tracker'),
-        ];
+        $categories = $this->categoryOptions();
 
         ?>
         <article class="card app-card habit-tracker-block habit-tracker-block--shared">
@@ -507,7 +502,18 @@ final class HabitsShortcode
 
                         <div class="habit-tracker-field">
                             <label for="habit-tracker-custom-category"><?php esc_html_e('Category', 'habit-tracker'); ?></label>
-                            <input id="habit-tracker-custom-category" type="text" name="category" maxlength="100">
+                            <select
+                                id="habit-tracker-custom-category"
+                                name="category"
+                                class="habit-tracker-field-select"
+                                required
+                            >
+                                <?php foreach ($this->categoryOptions() as $category_key => $category_label) : ?>
+                                    <option value="<?php echo esc_attr($category_key); ?>" <?php selected($category_key, self::CATEGORY_MIND); ?>>
+                                        <?php echo esc_html($category_label); ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
                         </div>
 
                         <div class="habit-tracker-field">
@@ -562,7 +568,18 @@ final class HabitsShortcode
 
                 <div class="habit-tracker-field">
                     <label for="habit-tracker-custom-category"><?php esc_html_e('Category', 'habit-tracker'); ?></label>
-                    <input id="habit-tracker-custom-category" type="text" name="category" maxlength="100">
+                    <select
+                        id="habit-tracker-custom-category"
+                        name="category"
+                        class="habit-tracker-field-select"
+                        required
+                    >
+                        <?php foreach ($this->categoryOptions() as $category_key => $category_label) : ?>
+                            <option value="<?php echo esc_attr($category_key); ?>" <?php selected($category_key, self::CATEGORY_MIND); ?>>
+                                <?php echo esc_html($category_label); ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
                 </div>
 
                 <div class="habit-tracker-field">
@@ -748,6 +765,28 @@ final class HabitsShortcode
 
         if ((string) ($dashboard_habit->source_type ?? '') === 'custom') {
             return self::CATEGORY_CUSTOM;
+        }
+
+        return self::CATEGORY_LIFE;
+    }
+
+    private function categoryOptions(): array
+    {
+        return [
+            self::CATEGORY_MIND => __('Mind', 'habit-tracker'),
+            self::CATEGORY_BODY => __('Body', 'habit-tracker'),
+            self::CATEGORY_PRODUCTIVITY => __('Productivity', 'habit-tracker'),
+            self::CATEGORY_LIFE => __('Life', 'habit-tracker'),
+        ];
+    }
+
+    private function normalizeCategoryKey(string $category): string
+    {
+        $normalized = sanitize_key($category);
+        $options = $this->categoryOptions();
+
+        if (isset($options[$normalized])) {
+            return $normalized;
         }
 
         return self::CATEGORY_LIFE;
