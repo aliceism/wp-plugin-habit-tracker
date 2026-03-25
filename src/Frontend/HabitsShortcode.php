@@ -50,6 +50,12 @@ final class HabitsShortcode
         add_action('admin_post_nopriv_' . self::ADD_SHARED_ACTION, [$this, 'handleUnauthorized']);
         add_action('admin_post_nopriv_' . self::ADD_CUSTOM_ACTION, [$this, 'handleUnauthorized']);
         add_action('admin_post_nopriv_' . self::REMOVE_USER_HABIT_ACTION, [$this, 'handleUnauthorized']);
+        add_action('wp_ajax_' . self::ADD_SHARED_ACTION, [$this, 'handleAddSharedHabitAjax']);
+        add_action('wp_ajax_' . self::ADD_CUSTOM_ACTION, [$this, 'handleAddCustomHabitAjax']);
+        add_action('wp_ajax_' . self::REMOVE_USER_HABIT_ACTION, [$this, 'handleRemoveUserHabitAjax']);
+        add_action('wp_ajax_nopriv_' . self::ADD_SHARED_ACTION, [$this, 'handleUnauthorizedAjax']);
+        add_action('wp_ajax_nopriv_' . self::ADD_CUSTOM_ACTION, [$this, 'handleUnauthorizedAjax']);
+        add_action('wp_ajax_nopriv_' . self::REMOVE_USER_HABIT_ACTION, [$this, 'handleUnauthorizedAjax']);
     }
 
     public function render(array $atts = [], ?string $content = null, string $shortcode_tag = ''): string
@@ -145,7 +151,54 @@ final class HabitsShortcode
         }
 
         check_admin_referer(self::ADD_SHARED_ACTION);
+        $notice = $this->processAddSharedHabitFromRequest();
+        $this->redirectWithNotice($notice);
+    }
 
+    public function handleAddSharedHabitAjax(): void
+    {
+        $this->handleMutationAjax(self::ADD_SHARED_ACTION);
+    }
+
+    public function handleAddCustomHabitAjax(): void
+    {
+        $this->handleMutationAjax(self::ADD_CUSTOM_ACTION);
+    }
+
+    public function handleRemoveUserHabitAjax(): void
+    {
+        $this->handleMutationAjax(self::REMOVE_USER_HABIT_ACTION);
+    }
+
+    private function handleMutationAjax(string $action): void
+    {
+        if (! is_user_logged_in()) {
+            $this->handleUnauthorizedAjax();
+        }
+
+        $is_nonce_valid = check_ajax_referer($action, '_wpnonce', false);
+
+        if (! $is_nonce_valid) {
+            $notice = $this->resolveFailedNoticeForAction($action);
+            $this->sendMutationAjaxSuccessPayload($notice, false);
+        }
+
+        $notice = $this->resolveNoticeForAction($action);
+        $success_notices = [
+            'shared-added' => true,
+            'shared-already-added' => true,
+            'custom-added' => true,
+            'stack-removed' => true,
+        ];
+
+        $this->sendMutationAjaxSuccessPayload(
+            $notice,
+            isset($success_notices[$notice])
+        );
+    }
+
+    private function processAddSharedHabitFromRequest(): string
+    {
         $habit_id = isset($_POST['habit_id']) ? absint(wp_unslash($_POST['habit_id'])) : 0;
         $target_per_week = isset($_POST['target_per_week']) ? (int) wp_unslash($_POST['target_per_week']) : 0;
 
@@ -154,7 +207,7 @@ final class HabitsShortcode
         }
 
         if ($habit_id <= 0) {
-            $this->redirectWithNotice('shared-invalid');
+            return 'shared-invalid';
         }
 
         $shared_habit = $this->habits->findById($habit_id);
@@ -164,7 +217,7 @@ final class HabitsShortcode
             ! isset($shared_habit->is_active) ||
             (int) $shared_habit->is_active !== 1
         ) {
-            $this->redirectWithNotice('shared-invalid');
+            return 'shared-invalid';
         }
 
         $result = $this->user_habits->addSharedHabitForUser(
@@ -176,14 +229,14 @@ final class HabitsShortcode
         );
 
         if ($result === 'created') {
-            $this->redirectWithNotice('shared-added');
+            return 'shared-added';
         }
 
         if ($result === 'exists' || $result === 'reactivated') {
-            $this->redirectWithNotice('shared-already-added');
+            return 'shared-already-added';
         }
 
-        $this->redirectWithNotice('shared-add-failed');
+        return 'shared-add-failed';
     }
 
     public function handleAddCustomHabit(): void
@@ -193,7 +246,12 @@ final class HabitsShortcode
         }
 
         check_admin_referer(self::ADD_CUSTOM_ACTION);
+        $notice = $this->processAddCustomHabitFromRequest();
+        $this->redirectWithNotice($notice);
+    }
 
+    private function processAddCustomHabitFromRequest(): string
+    {
         $name = sanitize_text_field(wp_unslash($_POST['name'] ?? ''));
         $category = $this->normalizeCategoryKey(sanitize_key((string) wp_unslash($_POST['category'] ?? '')));
         $description = sanitize_textarea_field(wp_unslash($_POST['description'] ?? ''));
@@ -204,7 +262,7 @@ final class HabitsShortcode
         }
 
         if ($name === '') {
-            $this->redirectWithNotice('custom-name-required');
+            return 'custom-name-required';
         }
 
         $created_id = $this->user_habits->createCustomHabitForUser(
@@ -218,10 +276,10 @@ final class HabitsShortcode
         );
 
         if ($created_id <= 0) {
-            $this->redirectWithNotice('custom-add-failed');
+            return 'custom-add-failed';
         }
 
-        $this->redirectWithNotice('custom-added');
+        return 'custom-added';
     }
 
     public function handleRemoveUserHabit(): void
@@ -231,24 +289,29 @@ final class HabitsShortcode
         }
 
         check_admin_referer(self::REMOVE_USER_HABIT_ACTION);
+        $notice = $this->processRemoveUserHabitFromRequest();
+        $this->redirectWithNotice($notice);
+    }
 
+    private function processRemoveUserHabitFromRequest(): string
+    {
         $user_habit_id = isset($_POST['user_habit_id']) ? absint(wp_unslash($_POST['user_habit_id'])) : 0;
 
         if ($user_habit_id <= 0) {
-            $this->redirectWithNotice('stack-remove-invalid');
+            return 'stack-remove-invalid';
         }
 
         $result = $this->user_habits->archiveActiveByIdForUser(get_current_user_id(), $user_habit_id);
 
         if ($result === 'archived') {
-            $this->redirectWithNotice('stack-removed');
+            return 'stack-removed';
         }
 
         if ($result === 'not-found') {
-            $this->redirectWithNotice('stack-remove-invalid');
+            return 'stack-remove-invalid';
         }
 
-        $this->redirectWithNotice('stack-remove-failed');
+        return 'stack-remove-failed';
     }
 
     public function handleUnauthorized(): void
@@ -257,6 +320,27 @@ final class HabitsShortcode
 
         wp_safe_redirect(wp_login_url($redirect));
         exit;
+    }
+
+    public function handleUnauthorizedAjax(): void
+    {
+        $login_url = wp_login_url($this->getCurrentUrl());
+
+        if (function_exists('habitlab_get_page_url_by_slug')) {
+            $theme_login_url = habitlab_get_page_url_by_slug('login');
+
+            if (is_string($theme_login_url) && $theme_login_url !== '') {
+                $login_url = $theme_login_url;
+            }
+        }
+
+        wp_send_json_error(
+            [
+                'notice' => $this->getNoticePayload('shared-invalid'),
+                'login_url' => $login_url,
+            ],
+            401
+        );
     }
 
     private function renderLoggedOut(): string
@@ -620,7 +704,27 @@ final class HabitsShortcode
             return;
         }
 
-        $messages = [
+        $this->renderNoticeByCode($notice);
+    }
+
+    private function renderNoticeByCode(string $notice): void
+    {
+        $messages = $this->getNoticeMessages();
+
+        if (! isset($messages[$notice])) {
+            return;
+        }
+
+        ?>
+        <div class="<?php echo esc_attr($messages[$notice]['class']); ?>">
+            <p><?php echo esc_html($messages[$notice]['text']); ?></p>
+        </div>
+        <?php
+    }
+
+    private function getNoticeMessages(): array
+    {
+        return [
             'shared-added' => [
                 'class' => 'habit-tracker-notice habit-tracker-notice--success',
                 'text' => __('Shared habit added to your dashboard.', 'habit-tracker'),
@@ -662,15 +766,100 @@ final class HabitsShortcode
                 'text' => __('Could not remove the habit from your dashboard stack.', 'habit-tracker'),
             ],
         ];
+    }
 
-        if (! isset($messages[$notice])) {
-            return;
+    private function getNoticePayload(string $notice): array
+    {
+        $messages = $this->getNoticeMessages();
+        $fallback = $messages['shared-add-failed'];
+        $resolved = $messages[$notice] ?? $fallback;
+
+        return [
+            'key' => $notice,
+            'class' => (string) ($resolved['class'] ?? $fallback['class']),
+            'text' => (string) ($resolved['text'] ?? $fallback['text']),
+        ];
+    }
+
+    private function renderNoticeHtmlByCode(string $notice): string
+    {
+        ob_start();
+        $this->renderNoticeByCode($notice);
+
+        return (string) ob_get_clean();
+    }
+
+    private function renderStackSectionHtml(array $user_dashboard_habits): string
+    {
+        ob_start();
+        $this->renderStackSection($user_dashboard_habits);
+
+        return (string) ob_get_clean();
+    }
+
+    private function renderSharedSectionHtml(array $shared_habits, array $active_shared_habit_ids, string $redirect_url): string
+    {
+        ob_start();
+        $this->renderSharedSection($shared_habits, $active_shared_habit_ids, $redirect_url);
+
+        return (string) ob_get_clean();
+    }
+
+    private function resolveNoticeForAction(string $action): string
+    {
+        if ($action === self::ADD_SHARED_ACTION) {
+            return $this->processAddSharedHabitFromRequest();
         }
-        ?>
-        <div class="<?php echo esc_attr($messages[$notice]['class']); ?>">
-            <p><?php echo esc_html($messages[$notice]['text']); ?></p>
-        </div>
-        <?php
+
+        if ($action === self::ADD_CUSTOM_ACTION) {
+            return $this->processAddCustomHabitFromRequest();
+        }
+
+        if ($action === self::REMOVE_USER_HABIT_ACTION) {
+            return $this->processRemoveUserHabitFromRequest();
+        }
+
+        return $this->resolveFailedNoticeForAction($action);
+    }
+
+    private function resolveFailedNoticeForAction(string $action): string
+    {
+        if ($action === self::ADD_SHARED_ACTION) {
+            return 'shared-add-failed';
+        }
+
+        if ($action === self::ADD_CUSTOM_ACTION) {
+            return 'custom-add-failed';
+        }
+
+        if ($action === self::REMOVE_USER_HABIT_ACTION) {
+            return 'stack-remove-failed';
+        }
+
+        return 'shared-add-failed';
+    }
+
+    private function sendMutationAjaxSuccessPayload(string $notice, bool $ok): void
+    {
+        $context = $this->getLoggedInContext();
+        $payload = [
+            'ok' => $ok,
+            'notice' => $this->getNoticePayload($notice),
+            'notice_html' => $this->renderNoticeHtmlByCode($notice),
+            'stack_html' => $this->renderStackSectionHtml($context['user_dashboard_habits']),
+            'shared_html' => $this->renderSharedSectionHtml(
+                $context['shared_habits'],
+                $context['active_shared_habit_ids'],
+                $context['redirect_url']
+            ),
+            'close_modals' => (
+                $notice === 'shared-added' ||
+                $notice === 'shared-already-added' ||
+                $notice === 'custom-added'
+            ),
+        ];
+
+        wp_send_json_success($payload);
     }
 
     private function enqueueAssets(): void
@@ -700,6 +889,17 @@ final class HabitsShortcode
             $script_version,
             true
         );
+
+        wp_localize_script(
+            'habit-tracker-frontend',
+            'habitTrackerHabits',
+            [
+                'ajaxUrl' => admin_url('admin-ajax.php'),
+                'addSharedAction' => self::ADD_SHARED_ACTION,
+                'addCustomAction' => self::ADD_CUSTOM_ACTION,
+                'removeAction' => self::REMOVE_USER_HABIT_ACTION,
+            ]
+        );
     }
 
     private function redirectWithNotice(string $notice): void
@@ -716,26 +916,83 @@ final class HabitsShortcode
     {
         $raw_redirect = wp_unslash($_POST['redirect_to'] ?? '');
 
-        if (! is_string($raw_redirect) || $raw_redirect === '') {
+        if (! is_string($raw_redirect) || $raw_redirect === '' || $this->isAdminPostUrl($raw_redirect)) {
+            $raw_redirect = wp_unslash($_POST['_wp_http_referer'] ?? '');
+        }
+
+        if (! is_string($raw_redirect) || $raw_redirect === '' || $this->isAdminPostUrl($raw_redirect)) {
             $raw_redirect = wp_get_referer();
         }
 
-        if (! is_string($raw_redirect) || $raw_redirect === '') {
+        if (! is_string($raw_redirect) || $raw_redirect === '' || $this->isAdminPostUrl($raw_redirect)) {
             $raw_redirect = $this->getCurrentUrl();
         }
 
-        return wp_validate_redirect($raw_redirect, home_url('/'));
+        return wp_validate_redirect($raw_redirect, $this->getHabitsFallbackUrl());
     }
 
     private function getCurrentUrl(): string
     {
-        $request_uri = isset($_SERVER['REQUEST_URI']) ? wp_unslash($_SERVER['REQUEST_URI']) : '/';
+        $request_uri = isset($_SERVER['REQUEST_URI']) ? wp_unslash($_SERVER['REQUEST_URI']) : '';
 
         if (! is_string($request_uri) || $request_uri === '') {
-            return home_url('/');
+            return $this->getHabitsFallbackUrl();
         }
 
-        return home_url($request_uri);
+        $request_path = (string) wp_parse_url($request_uri, PHP_URL_PATH);
+        $request_query = (string) wp_parse_url($request_uri, PHP_URL_QUERY);
+
+        if ($request_path === '') {
+            return $this->getHabitsFallbackUrl();
+        }
+
+        $home_path = (string) wp_parse_url(home_url('/'), PHP_URL_PATH);
+        $home_path = '/' . trim($home_path, '/');
+        $normalized_path = $request_path;
+
+        if ($home_path !== '/' && $home_path !== '') {
+            if ($normalized_path === $home_path) {
+                $normalized_path = '/';
+            } elseif (str_starts_with($normalized_path, $home_path . '/')) {
+                $normalized_path = substr($normalized_path, strlen($home_path));
+            }
+        }
+
+        if ($normalized_path === '' || $normalized_path[0] !== '/') {
+            $normalized_path = '/' . ltrim($normalized_path, '/');
+        }
+
+        $current_url = home_url($normalized_path);
+
+        if ($request_query !== '') {
+            $current_url .= '?' . $request_query;
+        }
+
+        return $current_url;
+    }
+
+    private function isAdminPostUrl(string $url): bool
+    {
+        $path = (string) wp_parse_url($url, PHP_URL_PATH);
+
+        if ($path === '') {
+            return false;
+        }
+
+        return str_ends_with($path, '/wp-admin/admin-post.php');
+    }
+
+    private function getHabitsFallbackUrl(): string
+    {
+        if (function_exists('habitlab_get_page_url_by_slug')) {
+            $theme_habits_url = habitlab_get_page_url_by_slug('habits');
+
+            if (is_string($theme_habits_url) && $theme_habits_url !== '') {
+                return $theme_habits_url;
+            }
+        }
+
+        return home_url('/');
     }
 
     private function getLoggedInContext(): array

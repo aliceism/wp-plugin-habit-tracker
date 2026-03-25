@@ -15,6 +15,13 @@ body.habit-tracker-page-loading #primary {
     transition: opacity 0.18s ease;
 }
 
+.habit-tracker-inline-form button.is-loading,
+.habit-tracker-form button.is-loading {
+    opacity: 0.72;
+    cursor: wait;
+    pointer-events: none;
+}
+
 @keyframes ht-habits-header-sweep {
     0% {
         background-position: 0% 50%;

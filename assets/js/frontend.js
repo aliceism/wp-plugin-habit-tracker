@@ -7,6 +7,8 @@
   const DASHBOARD_TOGGLE_FORM_SELECTOR = ".habit-tracker-month-toggle-form";
   const APP_NAV_LINK_SELECTOR = ".app-nav a[href]";
   const PAGE_LOADING_CLASS = "habit-tracker-page-loading";
+  const HABITS_STACK_SELECTOR = ".habit-tracker-block--stack";
+  const HABITS_SHARED_SELECTOR = ".habit-tracker-block--shared";
 
   let isSpaNavigationInProgress = false;
 
@@ -432,6 +434,236 @@
     });
   }
 
+  function getHabitsConfig() {
+    if (
+      typeof window.habitTrackerHabits !== "object" ||
+      window.habitTrackerHabits === null
+    ) {
+      return null;
+    }
+
+    return window.habitTrackerHabits;
+  }
+
+  function getHabitsActionSet(config) {
+    const actions = new Set();
+
+    if (
+      config &&
+      typeof config.addSharedAction === "string" &&
+      config.addSharedAction !== ""
+    ) {
+      actions.add(config.addSharedAction);
+    }
+
+    if (
+      config &&
+      typeof config.addCustomAction === "string" &&
+      config.addCustomAction !== ""
+    ) {
+      actions.add(config.addCustomAction);
+    }
+
+    if (
+      config &&
+      typeof config.removeAction === "string" &&
+      config.removeAction !== ""
+    ) {
+      actions.add(config.removeAction);
+    }
+
+    return actions;
+  }
+
+  function getFormActionName(form) {
+    if (!(form instanceof HTMLFormElement)) {
+      return "";
+    }
+
+    const actionInput = form.querySelector('input[name="action"]');
+
+    if (!(actionInput instanceof HTMLInputElement)) {
+      return "";
+    }
+
+    return (actionInput.value || "").trim();
+  }
+
+  function replaceHabitsFragment(selector, html) {
+    if (typeof html !== "string" || html.trim() === "") {
+      return;
+    }
+
+    const current = document.querySelector(selector);
+
+    if (!current) {
+      return;
+    }
+
+    current.outerHTML = html;
+  }
+
+  function upsertHabitsNotice(payload) {
+    const html =
+      payload && typeof payload.notice_html === "string"
+        ? payload.notice_html.trim()
+        : "";
+
+    if (html === "") {
+      return;
+    }
+
+    const existingNotice = document.querySelector(".habit-tracker-notice");
+
+    if (existingNotice) {
+      existingNotice.outerHTML = html;
+      return;
+    }
+
+    const habitsRoot = document.querySelector(".habit-tracker-habits");
+
+    if (habitsRoot) {
+      habitsRoot.insertAdjacentHTML("afterbegin", html);
+      return;
+    }
+
+    const appGrid = document.querySelector(".app-grid");
+
+    if (appGrid) {
+      appGrid.insertAdjacentHTML("beforebegin", html);
+      return;
+    }
+
+    const stack = document.querySelector(HABITS_STACK_SELECTOR);
+
+    if (stack) {
+      stack.insertAdjacentHTML("beforebegin", html);
+      return;
+    }
+
+    const primary = document.querySelector("#primary");
+
+    if (primary) {
+      primary.insertAdjacentHTML("afterbegin", html);
+    }
+  }
+
+  function applyHabitsMutationResponse(payload) {
+    if (!payload || typeof payload !== "object") {
+      return;
+    }
+
+    replaceHabitsFragment(HABITS_STACK_SELECTOR, payload.stack_html || "");
+    replaceHabitsFragment(HABITS_SHARED_SELECTOR, payload.shared_html || "");
+    upsertHabitsNotice(payload);
+
+    if (payload.close_modals === true) {
+      closeAllModals();
+    }
+  }
+
+  async function submitHabitsMutationForm(form) {
+    const config = getHabitsConfig();
+
+    if (
+      !config ||
+      typeof config.ajaxUrl !== "string" ||
+      config.ajaxUrl === ""
+    ) {
+      form.submit();
+      return;
+    }
+
+    const button = form.querySelector('button[type="submit"]');
+
+    if (button instanceof HTMLButtonElement) {
+      button.disabled = true;
+      button.classList.add("is-loading");
+    }
+
+    try {
+      const formData = new FormData(form);
+      const response = await fetch(config.ajaxUrl, {
+        method: "POST",
+        body: formData,
+        credentials: "same-origin",
+        headers: {
+          "X-Requested-With": "XMLHttpRequest",
+        },
+      });
+      const payload = await response.json();
+      const responseData =
+        payload && typeof payload === "object" ? payload.data || {} : {};
+
+      if (!response.ok || !payload || payload.success !== true) {
+        if (
+          responseData &&
+          typeof responseData.login_url === "string" &&
+          responseData.login_url !== ""
+        ) {
+          window.location.href = responseData.login_url;
+          return;
+        }
+
+        if (responseData && typeof responseData === "object") {
+          applyHabitsMutationResponse(responseData);
+          return;
+        }
+
+        throw new Error("habit-tracker-habits-ajax-failed");
+      }
+
+      applyHabitsMutationResponse(responseData);
+    } catch (error) {
+      form.submit();
+    } finally {
+      if (button instanceof HTMLButtonElement) {
+        button.disabled = false;
+        button.classList.remove("is-loading");
+      }
+    }
+  }
+
+  function initHabitsMutationsAjax() {
+    const config = getHabitsConfig();
+    const actionSet = getHabitsActionSet(config);
+
+    if (
+      !config ||
+      typeof config.ajaxUrl !== "string" ||
+      config.ajaxUrl === "" ||
+      actionSet.size === 0
+    ) {
+      return;
+    }
+
+    document.addEventListener("submit", (event) => {
+      const target = event.target;
+
+      if (!(target instanceof HTMLFormElement)) {
+        return;
+      }
+
+      const actionName = getFormActionName(target);
+
+      if (!actionSet.has(actionName)) {
+        return;
+      }
+
+      event.preventDefault();
+
+      if (target.dataset.htSubmitting === "1") {
+        return;
+      }
+
+      target.dataset.htSubmitting = "1";
+
+      submitHabitsMutationForm(target).finally(() => {
+        delete target.dataset.htSubmitting;
+      });
+    });
+  }
+
   function getModalById(modalId) {
     return document.querySelector(`[${MODAL_ATTR}="${modalId}"]`);
   }
@@ -466,6 +698,7 @@
   markDashboardPageHeader();
   initAppNavigation();
   initDashboardCheckinAjax();
+  initHabitsMutationsAjax();
 
   document.addEventListener("click", (event) => {
     const openTrigger = event.target.closest(`[${OPEN_ATTR}]`);
