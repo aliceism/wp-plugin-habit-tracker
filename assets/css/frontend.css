@@ -9,6 +9,12 @@
     --ht-text-muted: var(--text-muted, #64748b);
 }
 
+body.habit-tracker-page-loading #primary {
+    opacity: 0.72;
+    pointer-events: none;
+    transition: opacity 0.18s ease;
+}
+
 @keyframes ht-habits-header-sweep {
     0% {
         background-position: 0% 50%;

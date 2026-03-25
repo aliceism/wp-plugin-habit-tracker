@@ -5,33 +5,212 @@
   const HEADER_CLASS = "habit-tracker-page-header";
   const DASHBOARD_HEADER_CLASS = "habit-tracker-dashboard-header";
   const DASHBOARD_TOGGLE_FORM_SELECTOR = ".habit-tracker-month-toggle-form";
+  const APP_NAV_LINK_SELECTOR = ".app-nav a[href]";
+  const PAGE_LOADING_CLASS = "habit-tracker-page-loading";
+
+  let isSpaNavigationInProgress = false;
+
+  function hasHabitsUi() {
+    return Boolean(
+      document.querySelector(
+        ".habit-tracker-habits, .habit-tracker-block, .habit-tracker-progress, .habit-tracker-progress-metrics, .habit-tracker-progress-grid, [data-ht-open-modal], [data-ht-modal]"
+      )
+    );
+  }
+
+  function hasDashboardUi() {
+    return Boolean(
+      document.querySelector(
+        ".habit-tracker-dashboard, .habit-tracker-dashboard-metrics, .habit-tracker-dashboard-panels"
+      )
+    );
+  }
 
   function markHabitsPageHeader() {
-    const hasHabitsUi = document.querySelector(
-      ".habit-tracker-habits, .habit-tracker-block, [data-ht-open-modal], [data-ht-modal]"
-    );
-
-    if (!hasHabitsUi) return;
-
     const pageHeader = document.querySelector(".app-page-header");
 
     if (pageHeader) {
-      pageHeader.classList.add(HEADER_CLASS);
+      pageHeader.classList.toggle(HEADER_CLASS, hasHabitsUi());
     }
   }
 
   function markDashboardPageHeader() {
-    const hasDashboardUi = document.querySelector(
-      ".habit-tracker-dashboard, .habit-tracker-dashboard-metrics, .habit-tracker-dashboard-panels"
-    );
-
-    if (!hasDashboardUi) return;
-
     const pageHeader = document.querySelector(".app-page-header");
 
     if (pageHeader) {
-      pageHeader.classList.add(DASHBOARD_HEADER_CLASS);
+      pageHeader.classList.toggle(DASHBOARD_HEADER_CLASS, hasDashboardUi());
     }
+  }
+
+  function isEligibleAppNavLink(event, link) {
+    if (!(link instanceof HTMLAnchorElement)) {
+      return false;
+    }
+
+    if (event.defaultPrevented || event.button !== 0) {
+      return false;
+    }
+
+    if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
+      return false;
+    }
+
+    const target = (link.getAttribute("target") || "").trim();
+
+    if (target !== "" && target !== "_self") {
+      return false;
+    }
+
+    if (link.hasAttribute("download")) {
+      return false;
+    }
+
+    const href = link.getAttribute("href") || "";
+
+    if (href === "" || href.startsWith("#")) {
+      return false;
+    }
+
+    let url;
+
+    try {
+      url = new URL(href, window.location.href);
+    } catch (error) {
+      return false;
+    }
+
+    if (url.origin !== window.location.origin) {
+      return false;
+    }
+
+    if (url.hash !== "") {
+      return false;
+    }
+
+    if (url.searchParams.get("action") === "logout") {
+      return false;
+    }
+
+    if (
+      url.pathname === window.location.pathname &&
+      url.search === window.location.search
+    ) {
+      return false;
+    }
+
+    return true;
+  }
+
+  function syncAppNavigation(nextDocument) {
+    const currentAppNav = document.querySelector(".app-nav");
+    const nextAppNav = nextDocument.querySelector(".app-nav");
+
+    if (!currentAppNav || !nextAppNav) {
+      return;
+    }
+
+    currentAppNav.className = nextAppNav.className;
+    currentAppNav.innerHTML = nextAppNav.innerHTML;
+
+    const nextAria = nextAppNav.getAttribute("aria-label");
+
+    if (nextAria) {
+      currentAppNav.setAttribute("aria-label", nextAria);
+    }
+  }
+
+  function applyFetchedPage(nextDocument) {
+    const nextMain = nextDocument.querySelector("#primary");
+    const currentMain = document.querySelector("#primary");
+
+    if (!nextMain || !currentMain) {
+      return false;
+    }
+
+    currentMain.innerHTML = nextMain.innerHTML;
+
+    if (nextDocument.body && typeof nextDocument.body.className === "string") {
+      document.body.className = nextDocument.body.className;
+    }
+
+    if (typeof nextDocument.title === "string" && nextDocument.title !== "") {
+      document.title = nextDocument.title;
+    }
+
+    syncAppNavigation(nextDocument);
+    closeAllModals();
+    markHabitsPageHeader();
+    markDashboardPageHeader();
+
+    return true;
+  }
+
+  async function navigateAppWithoutReload(url, pushHistory) {
+    if (isSpaNavigationInProgress) {
+      return;
+    }
+
+    isSpaNavigationInProgress = true;
+    document.body.classList.add(PAGE_LOADING_CLASS);
+
+    try {
+      const response = await fetch(url, {
+        method: "GET",
+        credentials: "same-origin",
+        headers: {
+          "X-Requested-With": "XMLHttpRequest",
+        },
+      });
+      const html = await response.text();
+
+      if (!response.ok || typeof html !== "string" || html === "") {
+        throw new Error("habit-tracker-spa-fetch-failed");
+      }
+
+      const parsed = new DOMParser().parseFromString(html, "text/html");
+      const applied = applyFetchedPage(parsed);
+
+      if (!applied) {
+        throw new Error("habit-tracker-spa-apply-failed");
+      }
+
+      const finalUrl =
+        typeof response.url === "string" && response.url !== ""
+          ? response.url
+          : url;
+
+      if (pushHistory) {
+        window.history.pushState({ habitTrackerSpa: true }, "", finalUrl);
+      }
+
+      window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+    } catch (error) {
+      window.location.href = url;
+    } finally {
+      isSpaNavigationInProgress = false;
+      document.body.classList.remove(PAGE_LOADING_CLASS);
+    }
+  }
+
+  function initAppNavigation() {
+    document.addEventListener("click", (event) => {
+      const link = event.target.closest(APP_NAV_LINK_SELECTOR);
+
+      if (!isEligibleAppNavLink(event, link)) {
+        return;
+      }
+
+      event.preventDefault();
+      navigateAppWithoutReload(link.href, true);
+    });
+
+    window.addEventListener("popstate", () => {
+      if (isSpaNavigationInProgress) {
+        return;
+      }
+
+      navigateAppWithoutReload(window.location.href, false);
+    });
   }
 
   function getDashboardConfig() {
@@ -285,6 +464,7 @@
 
   markHabitsPageHeader();
   markDashboardPageHeader();
+  initAppNavigation();
   initDashboardCheckinAjax();
 
   document.addEventListener("click", (event) => {
