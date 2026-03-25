@@ -786,6 +786,7 @@ body.page-template-page-progress-php .app-page-header__subtitle {
     gap: 0.45rem;
     min-height: 11.8rem;
     align-items: stretch;
+    margin-top: 3rem;
     padding: 0.35rem 0.18rem 0;
 }
 
@@ -801,12 +802,14 @@ body.page-template-page-progress-php .app-page-header__subtitle {
 .habit-tracker-progress-week-col__value {
     position: absolute;
     left: 50%;
-    bottom: clamp(0.2rem, calc(var(--ht-week-bar-height, 0%) + 0.24rem), calc(100% - 1rem));
+    bottom: clamp(0.22rem, calc(var(--ht-week-bar-height, 0%) + 0.24rem), calc(100% + 0.65rem));
     transform: translateX(-50%);
     z-index: 2;
     line-height: 1;
     font-size: 0.72rem;
+    font-weight: 600;
     color: #cbd5e1;
+    pointer-events: none;
 }
 
 .habit-tracker-progress-week-col__track {
@@ -815,6 +818,7 @@ body.page-template-page-progress-php .app-page-header__subtitle {
     height: 9.4rem;
     display: flex;
     align-items: flex-end;
+    overflow: visible;
 }
 
 .habit-tracker-progress-week-col__bar {
@@ -2680,6 +2684,7 @@ body.habit-tracker-modal-open {
 
     .habit-tracker-progress-week-chart {
         min-height: 9.2rem;
+        margin-top: 2.16rem;
     }
 
     .habit-tracker-progress-trend-chart svg {
