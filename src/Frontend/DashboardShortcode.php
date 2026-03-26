@@ -2,6 +2,7 @@
 
 namespace HabitTracker\Frontend;
 
+use HabitTracker\Domain\Analytics\HabitMath;
 use HabitTracker\Infrastructure\Persistence\WpdbCheckinRepository;
 use HabitTracker\Infrastructure\Persistence\WpdbUserHabitRepository;
 
@@ -870,27 +871,7 @@ final class DashboardShortcode
             return 0;
         }
 
-        $date_set = array_fill_keys($dates, true);
-        $streak = 0;
-        $today_ts = strtotime($today);
-
-        if (! is_int($today_ts)) {
-            return 0;
-        }
-
-        $start_offset = isset($date_set[$today]) ? 0 : 1;
-
-        for ($offset = $start_offset; $offset < ($max_days + $start_offset); $offset++) {
-            $date = wp_date('Y-m-d', strtotime('-' . $offset . ' days', $today_ts));
-
-            if (! isset($date_set[$date])) {
-                break;
-            }
-
-            $streak++;
-        }
-
-        return $streak;
+        return HabitMath::calculateDateSetStreak(array_fill_keys($dates, true), $today, $max_days);
     }
 
     private function groupHabitsByCategory(array $active_habits): array
@@ -1160,38 +1141,12 @@ final class DashboardShortcode
         string $today,
         int $target_days_mask
     ): int {
-        $today_ts = strtotime($today);
-
-        if (! is_int($today_ts)) {
-            return 0;
-        }
-
-        $date_set = array_fill_keys(array_keys($habit_history), true);
-        $streak = 0;
-        $is_today_enabled = $this->isDateEnabledByMask($today, $target_days_mask);
-        $start_offset = ($is_today_enabled && ! isset($date_set[$today])) ? 1 : 0;
-
-        for ($offset = $start_offset; $offset < (self::HISTORY_DAYS + $start_offset); $offset++) {
-            $timestamp = strtotime('-' . $offset . ' days', $today_ts);
-
-            if (! is_int($timestamp)) {
-                break;
-            }
-
-            $date = wp_date('Y-m-d', $timestamp);
-
-            if (! $this->isDateEnabledByMask($date, $target_days_mask)) {
-                continue;
-            }
-
-            if (! isset($date_set[$date])) {
-                break;
-            }
-
-            $streak++;
-        }
-
-        return $streak;
+        return HabitMath::calculateDailyHabitStreak(
+            $habit_history,
+            $today,
+            $target_days_mask,
+            self::HISTORY_DAYS
+        );
     }
 
     private function calculateWeeklyHabitStreakFromHistory(
@@ -1200,72 +1155,13 @@ final class DashboardShortcode
         int $target_count,
         int $target_days_mask
     ): int {
-        $today_ts = strtotime($today);
-
-        if (! is_int($today_ts)) {
-            return 0;
-        }
-
-        $weekly_counts = $this->buildWeeklyCompletionCounts($habit_history, $target_days_mask);
-
-        if ($weekly_counts === []) {
-            return 0;
-        }
-
-        $streak = 0;
-        $max_weeks = max(1, (int) ceil(self::HISTORY_DAYS / 7));
-        $current_week_key = wp_date('o-W', $today_ts);
-        $current_week_completed = (int) ($weekly_counts[$current_week_key] ?? 0) >= $target_count;
-        $start_offset = $current_week_completed ? 0 : 1;
-
-        for ($offset = $start_offset; $offset < ($max_weeks + $start_offset); $offset++) {
-            $week_ts = strtotime('-' . $offset . ' weeks', $today_ts);
-
-            if (! is_int($week_ts)) {
-                break;
-            }
-
-            $week_key = wp_date('o-W', $week_ts);
-            $completed = (int) ($weekly_counts[$week_key] ?? 0);
-
-            if ($completed < $target_count) {
-                break;
-            }
-
-            $streak++;
-        }
-
-        return $streak;
-    }
-
-    private function buildWeeklyCompletionCounts(array $habit_history, int $target_days_mask): array
-    {
-        $counts = [];
-
-        foreach ($habit_history as $date => $is_checked) {
-            unset($is_checked);
-            $date_key = (string) $date;
-
-            if (! $this->isDateEnabledByMask($date_key, $target_days_mask)) {
-                continue;
-            }
-
-            $date_ts = strtotime($date_key);
-
-            if (! is_int($date_ts)) {
-                continue;
-            }
-
-            $week_key = wp_date('o-W', $date_ts);
-
-            if (! isset($counts[$week_key])) {
-                $counts[$week_key] = 0;
-            }
-
-            $counts[$week_key]++;
-        }
-
-        return $counts;
+        return HabitMath::calculateWeeklyHabitStreak(
+            $habit_history,
+            $today,
+            $target_count,
+            $target_days_mask,
+            self::HISTORY_DAYS
+        );
     }
 
     private function calculateTargetForPeriod(
@@ -1275,41 +1171,13 @@ final class DashboardShortcode
         string $start_date,
         string $end_date
     ): int {
-        $period_dates = $this->buildDateRange($start_date, $end_date);
-
-        if ($period_dates === []) {
-            return 0;
-        }
-
-        if ($frequency_type === self::FREQUENCY_WEEKLY) {
-            $weeks = [];
-
-            foreach ($period_dates as $period_date) {
-                if (! $this->isDateEnabledByMask($period_date, $target_days_mask)) {
-                    continue;
-                }
-
-                $period_ts = strtotime($period_date);
-
-                if (! is_int($period_ts)) {
-                    continue;
-                }
-
-                $weeks[wp_date('o-W', $period_ts)] = true;
-            }
-
-            return count($weeks) * $target_count;
-        }
-
-        $eligible_days = 0;
-
-        foreach ($period_dates as $period_date) {
-            if ($this->isDateEnabledByMask($period_date, $target_days_mask)) {
-                $eligible_days++;
-            }
-        }
-
-        return $eligible_days * $target_count;
+        return HabitMath::calculateTargetForPeriod(
+            $frequency_type,
+            $target_count,
+            $target_days_mask,
+            $start_date,
+            $end_date
+        );
     }
 
     private function resolveHabitStartDate(object $habit, string $fallback): string
@@ -1344,24 +1212,6 @@ final class DashboardShortcode
         }
 
         return $filtered;
-    }
-
-    private function isDateEnabledByMask(string $date, int $target_days_mask): bool
-    {
-        if ($target_days_mask <= 0 || $target_days_mask >= 127) {
-            return true;
-        }
-
-        $date_ts = strtotime($date);
-
-        if (! is_int($date_ts)) {
-            return true;
-        }
-
-        $weekday = (int) wp_date('w', $date_ts);
-        $weekday_bit = 1 << $weekday;
-
-        return ($target_days_mask & $weekday_bit) !== 0;
     }
 
     private function normalizeFrequencyType(string $frequency_type): string

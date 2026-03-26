@@ -434,15 +434,14 @@ final class HabitsShortcode
     {
         $grouped_habits = $this->groupHabitsByPresetCategory($shared_habits);
         $categories = $this->categoryOptions();
-
         ?>
-        <article class="card app-card habit-tracker-block habit-tracker-block--shared" style="overflow: visible;">
+        <article class="card app-card habit-tracker-block habit-tracker-block--shared">
             <div class="habit-tracker-block__header">
                 <p class="app-card__eyebrow"><?php esc_html_e('Habits', 'habit-tracker'); ?></p>
                 <h3><?php esc_html_e('Pick Habits For Your Lab', 'habit-tracker'); ?></h3>
             </div>
 
-            <div class="habit-tracker-category-grid" style="overflow: visible;">
+            <div class="habit-tracker-category-grid">
                 <?php foreach ($categories as $category_key => $category_label) : ?>
                     <?php $modal_id = 'habit-tracker-modal-' . $category_key; ?>
                     <button
