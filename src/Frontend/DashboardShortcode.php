@@ -3,6 +3,7 @@
 namespace HabitTracker\Frontend;
 
 use HabitTracker\Domain\Analytics\DashboardAnalytics;
+use HabitTracker\Domain\Rules\HabitRules;
 use HabitTracker\Infrastructure\Persistence\WpdbCheckinRepository;
 use HabitTracker\Infrastructure\Persistence\WpdbUserHabitRepository;
 
@@ -18,7 +19,6 @@ final class DashboardShortcode
     private const SHORTCODE_PANELS = 'habit_tracker_dashboard_panels';
     private const TOGGLE_CHECKIN_ACTION = 'habit_tracker_toggle_checkin';
     private const NOTICE_QUERY_KEY = 'htd_notice';
-    private const HISTORY_DAYS = 30;
 
     private DashboardAnalytics $analytics;
 
@@ -263,7 +263,7 @@ final class DashboardShortcode
                 'stat' => sprintf(
                     esc_html__('%1$d / %2$d days', 'habit-tracker'),
                     (int) $metrics['active_days'],
-                    self::HISTORY_DAYS
+                    HabitRules::HISTORY_DAYS_DASHBOARD
                 ),
                 'meta' => __('Days with at least one completed check.', 'habit-tracker'),
             ],

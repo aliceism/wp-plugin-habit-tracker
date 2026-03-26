@@ -3,6 +3,7 @@
 namespace HabitTracker\Frontend;
 
 use HabitTracker\Domain\Analytics\ProgressAnalytics;
+use HabitTracker\Domain\Rules\HabitRules;
 use HabitTracker\Infrastructure\Persistence\WpdbCheckinRepository;
 use HabitTracker\Infrastructure\Persistence\WpdbUserHabitRepository;
 
@@ -15,7 +16,6 @@ final class ProgressShortcode
     private const SHORTCODE_ALL = 'habit_tracker_progress';
     private const SHORTCODE_METRICS = 'habit_tracker_progress_metrics';
     private const SHORTCODE_BREAKDOWN = 'habit_tracker_progress_breakdown';
-    private const CATEGORY_LIFE = 'life';
 
     private ProgressAnalytics $analytics;
 
@@ -313,7 +313,7 @@ final class ProgressShortcode
             <?php else : ?>
                 <ul class="habit-tracker-progress-habit-chart">
                     <?php foreach ($habit_rows as $row) : ?>
-                        <?php $category_key = sanitize_key((string) ($row['category'] ?? self::CATEGORY_LIFE)); ?>
+                        <?php $category_key = sanitize_key((string) ($row['category'] ?? HabitRules::CATEGORY_LIFE)); ?>
                         <li class="habit-tracker-progress-habit-row habit-tracker-progress-habit-row--<?php echo esc_attr($category_key); ?>">
                             <div class="habit-tracker-progress-habit-row__head">
                                 <span class="habit-tracker-progress-habit-row__name"><?php echo esc_html((string) ($row['name'] ?? '')); ?></span>

@@ -2,6 +2,7 @@
 
 namespace HabitTracker\Admin;
 
+use HabitTracker\Domain\Rules\HabitRules;
 use HabitTracker\Infrastructure\Persistence\WpdbHabitRepository;
 
 if (! defined('ABSPATH')) {
@@ -15,10 +16,6 @@ final class HabitAdminPage
     private const IMPORT_ACTION = 'habit_tracker_import_habits';
     private const TOGGLE_ACTION = 'habit_tracker_toggle_habit';
     private const DELETE_ACTION = 'habit_tracker_delete_habit';
-    private const CATEGORY_MIND = 'mind';
-    private const CATEGORY_BODY = 'body';
-    private const CATEGORY_PRODUCTIVITY = 'productivity';
-    private const CATEGORY_LIFE = 'life';
 
     private WpdbHabitRepository $habits;
 
@@ -327,9 +324,9 @@ final class HabitAdminPage
             'slug'                     => $this->habits->generateUniqueSlug($slug_input !== '' ? $slug_input : $name, $habit_id > 0 ? $habit_id : null),
             'category'                 => $category,
             'description'              => $description,
-            'default_frequency_type'   => 'daily',
-            'default_target_count'     => 1,
-            'default_target_days_mask' => 127,
+            'default_frequency_type'   => HabitRules::FREQUENCY_DAILY,
+            'default_target_count'     => HabitRules::DEFAULT_TARGET_COUNT,
+            'default_target_days_mask' => HabitRules::DEFAULT_TARGET_DAYS_MASK,
             'is_active'                => $is_active,
             'sort_order'               => $sort_order,
         ];
@@ -431,9 +428,9 @@ final class HabitAdminPage
                 'slug'                     => $this->habits->generateUniqueSlug($slug_input),
                 'category'                 => $category,
                 'description'              => $description,
-                'default_frequency_type'   => 'daily',
-                'default_target_count'     => 1,
-                'default_target_days_mask' => 127,
+                'default_frequency_type'   => HabitRules::FREQUENCY_DAILY,
+                'default_target_count'     => HabitRules::DEFAULT_TARGET_COUNT,
+                'default_target_days_mask' => HabitRules::DEFAULT_TARGET_DAYS_MASK,
                 'is_active'                => 1,
                 'sort_order'               => $sort_order,
             ];
@@ -523,7 +520,7 @@ final class HabitAdminPage
             return [
                 'name' => '',
                 'slug' => '',
-                'category' => self::CATEGORY_MIND,
+                'category' => HabitRules::CATEGORY_MIND,
                 'description' => '',
                 'sort_order' => '0',
                 'is_active' => '1',
@@ -658,24 +655,12 @@ final class HabitAdminPage
 
     private function categoryOptions(): array
     {
-        return [
-            self::CATEGORY_MIND => __('Mind', 'habit-tracker'),
-            self::CATEGORY_BODY => __('Body', 'habit-tracker'),
-            self::CATEGORY_PRODUCTIVITY => __('Productivity', 'habit-tracker'),
-            self::CATEGORY_LIFE => __('Life', 'habit-tracker'),
-        ];
+        return HabitRules::categoryLabels(false);
     }
 
     private function normalizeCategoryKey(string $category): string
     {
-        $normalized = sanitize_key($category);
-        $options = $this->categoryOptions();
-
-        if (isset($options[$normalized])) {
-            return $normalized;
-        }
-
-        return self::CATEGORY_LIFE;
+        return HabitRules::normalizeCategoryKey($category);
     }
 
     private function resolveCategoryLabel(string $category): string
@@ -683,7 +668,7 @@ final class HabitAdminPage
         $options = $this->categoryOptions();
         $normalized = $this->normalizeCategoryKey($category);
 
-        return (string) ($options[$normalized] ?? $options[self::CATEGORY_LIFE]);
+        return (string) ($options[$normalized] ?? $options[HabitRules::CATEGORY_LIFE]);
     }
 
     private function normalizeImportItems(array $decoded): array

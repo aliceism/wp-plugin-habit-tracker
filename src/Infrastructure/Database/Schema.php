@@ -2,6 +2,8 @@
 
 namespace HabitTracker\Infrastructure\Database;
 
+use HabitTracker\Domain\Rules\HabitRules;
+
 if (! defined('ABSPATH')) {
     exit;
 }
@@ -44,6 +46,9 @@ final class Schema
     {
         $tables = self::getTableNames($wpdb);
         $charset_collate = $wpdb->get_charset_collate();
+        $default_frequency_type = HabitRules::FREQUENCY_DAILY;
+        $default_target_count = HabitRules::DEFAULT_TARGET_COUNT;
+        $default_target_days_mask = HabitRules::DEFAULT_TARGET_DAYS_MASK;
 
         return [
             self::TABLE_HABITS => "
@@ -53,9 +58,9 @@ final class Schema
                     slug varchar(191) NOT NULL,
                     category varchar(100) NOT NULL DEFAULT '',
                     description text NULL,
-                    default_frequency_type varchar(20) NOT NULL DEFAULT 'daily',
-                    default_target_count smallint(5) unsigned NOT NULL DEFAULT 1,
-                    default_target_days_mask tinyint(3) unsigned NOT NULL DEFAULT 127,
+                    default_frequency_type varchar(20) NOT NULL DEFAULT '{$default_frequency_type}',
+                    default_target_count smallint(5) unsigned NOT NULL DEFAULT {$default_target_count},
+                    default_target_days_mask tinyint(3) unsigned NOT NULL DEFAULT {$default_target_days_mask},
                     is_active tinyint(1) NOT NULL DEFAULT 1,
                     sort_order int(10) unsigned NOT NULL DEFAULT 0,
                     created_by_user_id bigint(20) unsigned NOT NULL,
@@ -77,9 +82,9 @@ final class Schema
                     name varchar(191) NOT NULL,
                     category varchar(100) NOT NULL DEFAULT '',
                     description text NULL,
-                    frequency_type varchar(20) NOT NULL DEFAULT 'daily',
-                    target_count smallint(5) unsigned NOT NULL DEFAULT 1,
-                    target_days_mask tinyint(3) unsigned NOT NULL DEFAULT 127,
+                    frequency_type varchar(20) NOT NULL DEFAULT '{$default_frequency_type}',
+                    target_count smallint(5) unsigned NOT NULL DEFAULT {$default_target_count},
+                    target_days_mask tinyint(3) unsigned NOT NULL DEFAULT {$default_target_days_mask},
                     start_date date NOT NULL,
                     position int(10) unsigned NOT NULL DEFAULT 0,
                     is_active tinyint(1) NOT NULL DEFAULT 1,

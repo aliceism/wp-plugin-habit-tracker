@@ -2,6 +2,7 @@
 
 namespace HabitTracker\Infrastructure\Persistence;
 
+use HabitTracker\Domain\Rules\HabitRules;
 use HabitTracker\Infrastructure\Database\Schema;
 
 if (! defined('ABSPATH')) {
@@ -10,11 +11,6 @@ if (! defined('ABSPATH')) {
 
 final class WpdbUserHabitRepository
 {
-    private const CATEGORY_MIND = 'mind';
-    private const CATEGORY_BODY = 'body';
-    private const CATEGORY_PRODUCTIVITY = 'productivity';
-    private const CATEGORY_LIFE = 'life';
-
     private \wpdb $wpdb;
 
     private string $user_habits_table;
@@ -214,26 +210,38 @@ final class WpdbUserHabitRepository
 
     private function resolveCustomFrequencyConfig(array $data): array
     {
-        $target_per_week = isset($data['target_per_week']) ? (int) $data['target_per_week'] : 7;
+        $target_per_week = isset($data['target_per_week'])
+            ? HabitRules::normalizeTargetPerWeek((int) $data['target_per_week'])
+            : HabitRules::DEFAULT_TARGET_PER_WEEK;
 
-        if ($target_per_week >= 1 && $target_per_week <= 7) {
-            return ['weekly', $target_per_week, 127];
+        if ($target_per_week > 0) {
+            return [
+                HabitRules::FREQUENCY_WEEKLY,
+                $target_per_week,
+                HabitRules::DEFAULT_TARGET_DAYS_MASK,
+            ];
         }
 
-        return ['daily', 1, 127];
+        return [
+            HabitRules::FREQUENCY_DAILY,
+            HabitRules::DEFAULT_TARGET_COUNT,
+            HabitRules::DEFAULT_TARGET_DAYS_MASK,
+        ];
     }
 
     private function resolveFrequencyConfig(object $habit, array $frequency_override): array
     {
-        $frequency_type = $this->normalizeFrequencyType((string) ($habit->default_frequency_type ?? 'daily'));
-        $target_count = $this->normalizeTargetCount((int) ($habit->default_target_count ?? 1));
-        $target_days_mask = $this->normalizeTargetDaysMask((int) ($habit->default_target_days_mask ?? 127));
-        $target_per_week = isset($frequency_override['target_per_week']) ? (int) $frequency_override['target_per_week'] : 0;
+        $frequency_type = $this->normalizeFrequencyType((string) ($habit->default_frequency_type ?? HabitRules::FREQUENCY_DAILY));
+        $target_count = $this->normalizeTargetCount((int) ($habit->default_target_count ?? HabitRules::DEFAULT_TARGET_COUNT));
+        $target_days_mask = $this->normalizeTargetDaysMask((int) ($habit->default_target_days_mask ?? HabitRules::DEFAULT_TARGET_DAYS_MASK));
+        $target_per_week = isset($frequency_override['target_per_week'])
+            ? HabitRules::normalizeTargetPerWeek((int) $frequency_override['target_per_week'])
+            : 0;
 
-        if ($target_per_week >= 1 && $target_per_week <= 7) {
-            $frequency_type = 'weekly';
+        if ($target_per_week > 0) {
+            $frequency_type = HabitRules::FREQUENCY_WEEKLY;
             $target_count = $target_per_week;
-            $target_days_mask = 127;
+            $target_days_mask = HabitRules::DEFAULT_TARGET_DAYS_MASK;
         }
 
         return [$frequency_type, $target_count, $target_days_mask];
@@ -299,33 +307,21 @@ final class WpdbUserHabitRepository
 
     private function normalizeFrequencyType(string $frequency_type): string
     {
-        return sanitize_key($frequency_type) === 'weekly' ? 'weekly' : 'daily';
+        return HabitRules::normalizeFrequencyType($frequency_type);
     }
 
     private function normalizeTargetCount(int $target_count): int
     {
-        return max(1, min(7, $target_count));
+        return HabitRules::normalizeTargetCount($target_count);
     }
 
     private function normalizeTargetDaysMask(int $target_days_mask): int
     {
-        return max(0, min(127, $target_days_mask));
+        return HabitRules::normalizeTargetDaysMask($target_days_mask);
     }
 
     private function normalizeCategoryKey(string $category): string
     {
-        $normalized = sanitize_key($category);
-        $allowed = [
-            self::CATEGORY_MIND => true,
-            self::CATEGORY_BODY => true,
-            self::CATEGORY_PRODUCTIVITY => true,
-            self::CATEGORY_LIFE => true,
-        ];
-
-        if (isset($allowed[$normalized])) {
-            return $normalized;
-        }
-
-        return self::CATEGORY_LIFE;
+        return HabitRules::normalizeCategoryKey($category);
     }
 }

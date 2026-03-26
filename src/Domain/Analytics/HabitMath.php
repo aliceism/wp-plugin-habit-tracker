@@ -2,14 +2,16 @@
 
 namespace HabitTracker\Domain\Analytics;
 
+use HabitTracker\Domain\Rules\HabitRules;
+
 if (! defined('ABSPATH')) {
     exit;
 }
 
 final class HabitMath
 {
-    public const FREQUENCY_DAILY = 'daily';
-    public const FREQUENCY_WEEKLY = 'weekly';
+    public const FREQUENCY_DAILY = HabitRules::FREQUENCY_DAILY;
+    public const FREQUENCY_WEEKLY = HabitRules::FREQUENCY_WEEKLY;
 
     public static function calculateDateSetStreak(array $date_set, string $today, int $max_days): int
     {
@@ -62,6 +64,8 @@ final class HabitMath
             return 0;
         }
 
+        $target_days_mask = HabitRules::normalizeTargetDaysMask($target_days_mask);
+
         $date_set = self::normalizeHistoryToDateSet($habit_history);
 
         if ($date_set === []) {
@@ -113,7 +117,8 @@ final class HabitMath
             return 0;
         }
 
-        $target_count = max(1, $target_count);
+        $target_count = HabitRules::normalizeTargetCount($target_count);
+        $target_days_mask = HabitRules::normalizeTargetDaysMask($target_days_mask);
         $weekly_counts = self::buildWeeklyCompletionCounts($habit_history, $target_days_mask);
 
         if ($weekly_counts === []) {
@@ -153,7 +158,8 @@ final class HabitMath
         string $start_date,
         string $end_date
     ): int {
-        $target_count = max(1, $target_count);
+        $target_count = HabitRules::normalizeTargetCount($target_count);
+        $target_days_mask = HabitRules::normalizeTargetDaysMask($target_days_mask);
         $period_dates = self::buildDateRange($start_date, $end_date);
 
         if ($period_dates === []) {
@@ -219,7 +225,12 @@ final class HabitMath
 
     public static function isDateEnabledByMask(string $date, int $target_days_mask): bool
     {
-        if ($target_days_mask <= 0 || $target_days_mask >= 127) {
+        $target_days_mask = HabitRules::normalizeTargetDaysMask($target_days_mask);
+
+        if (
+            $target_days_mask <= HabitRules::TARGET_DAYS_MASK_MIN ||
+            $target_days_mask >= HabitRules::TARGET_DAYS_MASK_MAX
+        ) {
             return true;
         }
 
@@ -285,11 +296,13 @@ final class HabitMath
 
     private static function normalizeFrequencyType(string $frequency_type): string
     {
-        $normalized = function_exists('sanitize_key')
-            ? sanitize_key($frequency_type)
-            : preg_replace('/[^a-z0-9_\-]/', '', strtolower($frequency_type));
+        if (function_exists('sanitize_key')) {
+            return HabitRules::normalizeFrequencyType($frequency_type);
+        }
 
-        return $normalized === self::FREQUENCY_WEEKLY
+        $normalized = preg_replace('/[^a-z0-9_\-]/', '', strtolower($frequency_type));
+
+        return (string) $normalized === self::FREQUENCY_WEEKLY
             ? self::FREQUENCY_WEEKLY
             : self::FREQUENCY_DAILY;
     }

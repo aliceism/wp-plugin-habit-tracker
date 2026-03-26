@@ -2,6 +2,7 @@
 
 namespace HabitTracker\Frontend;
 
+use HabitTracker\Domain\Rules\HabitRules;
 use HabitTracker\Infrastructure\Persistence\WpdbHabitRepository;
 use HabitTracker\Infrastructure\Persistence\WpdbUserHabitRepository;
 
@@ -20,11 +21,6 @@ final class HabitsShortcode
     private const ADD_CUSTOM_ACTION = 'habit_tracker_add_custom_habit';
     private const REMOVE_USER_HABIT_ACTION = 'habit_tracker_remove_user_habit';
     private const NOTICE_QUERY_KEY = 'ht_notice';
-    private const CATEGORY_MIND = 'mind';
-    private const CATEGORY_BODY = 'body';
-    private const CATEGORY_PRODUCTIVITY = 'productivity';
-    private const CATEGORY_LIFE = 'life';
-    private const CATEGORY_CUSTOM = 'custom';
 
     private WpdbHabitRepository $habits;
 
@@ -591,8 +587,8 @@ final class HabitsShortcode
                                 class="habit-tracker-field-select"
                                 required
                             >
-                                <?php foreach ($this->categoryOptions() as $category_key => $category_label) : ?>
-                                    <option value="<?php echo esc_attr($category_key); ?>" <?php selected($category_key, self::CATEGORY_MIND); ?>>
+                                    <?php foreach ($this->categoryOptions() as $category_key => $category_label) : ?>
+                                    <option value="<?php echo esc_attr($category_key); ?>" <?php selected($category_key, HabitRules::CATEGORY_MIND); ?>>
                                         <?php echo esc_html($category_label); ?>
                                     </option>
                                 <?php endforeach; ?>
@@ -658,7 +654,7 @@ final class HabitsShortcode
                         required
                     >
                         <?php foreach ($this->categoryOptions() as $category_key => $category_label) : ?>
-                            <option value="<?php echo esc_attr($category_key); ?>" <?php selected($category_key, self::CATEGORY_MIND); ?>>
+                            <option value="<?php echo esc_attr($category_key); ?>" <?php selected($category_key, HabitRules::CATEGORY_MIND); ?>>
                                 <?php echo esc_html($category_label); ?>
                             </option>
                         <?php endforeach; ?>
@@ -1010,58 +1006,36 @@ final class HabitsShortcode
     {
         $category_key = sanitize_key((string) ($dashboard_habit->category ?? ''));
 
-        if (
-            $category_key === self::CATEGORY_MIND ||
-            $category_key === self::CATEGORY_BODY ||
-            $category_key === self::CATEGORY_PRODUCTIVITY ||
-            $category_key === self::CATEGORY_LIFE
-        ) {
+        if (HabitRules::isCoreCategoryKey($category_key)) {
             return $category_key;
         }
 
         if ((string) ($dashboard_habit->source_type ?? '') === 'custom') {
-            return self::CATEGORY_CUSTOM;
+            return HabitRules::CATEGORY_CUSTOM;
         }
 
-        return self::CATEGORY_LIFE;
+        return HabitRules::CATEGORY_LIFE;
     }
 
     private function categoryOptions(): array
     {
-        return [
-            self::CATEGORY_MIND => __('Mind', 'habit-tracker'),
-            self::CATEGORY_BODY => __('Body', 'habit-tracker'),
-            self::CATEGORY_PRODUCTIVITY => __('Productivity', 'habit-tracker'),
-            self::CATEGORY_LIFE => __('Life', 'habit-tracker'),
-        ];
+        return HabitRules::categoryLabels(false);
     }
 
     private function normalizeCategoryKey(string $category): string
     {
-        $normalized = sanitize_key($category);
-        $options = $this->categoryOptions();
-
-        if (isset($options[$normalized])) {
-            return $normalized;
-        }
-
-        return self::CATEGORY_LIFE;
+        return HabitRules::normalizeCategoryKey($category);
     }
 
     private function groupHabitsByPresetCategory(array $shared_habits): array
     {
-        $grouped = [
-            self::CATEGORY_MIND => [],
-            self::CATEGORY_BODY => [],
-            self::CATEGORY_PRODUCTIVITY => [],
-            self::CATEGORY_LIFE => [],
-        ];
+        $grouped = array_fill_keys(HabitRules::categoryKeys(false), []);
 
         foreach ($shared_habits as $shared_habit) {
             $category_key = sanitize_key((string) $shared_habit->category);
 
             if (! isset($grouped[$category_key])) {
-                $category_key = self::CATEGORY_LIFE;
+                $category_key = HabitRules::CATEGORY_LIFE;
             }
 
             $grouped[$category_key][] = $shared_habit;
@@ -1072,14 +1046,14 @@ final class HabitsShortcode
 
     private function resolveDefaultTargetPerWeek(object $shared_habit): int
     {
-        $frequency_type = sanitize_key((string) ($shared_habit->default_frequency_type ?? 'daily'));
-        $target_count = max(1, min(7, (int) ($shared_habit->default_target_count ?? 1)));
+        $frequency_type = HabitRules::normalizeFrequencyType(
+            (string) ($shared_habit->default_frequency_type ?? HabitRules::FREQUENCY_DAILY)
+        );
+        $target_count = HabitRules::normalizeTargetCount(
+            (int) ($shared_habit->default_target_count ?? HabitRules::DEFAULT_TARGET_COUNT)
+        );
 
-        if ($frequency_type === 'weekly') {
-            return $target_count;
-        }
-
-        return 7;
+        return HabitRules::resolveDefaultTargetPerWeek($frequency_type, $target_count);
     }
 
     private function formatTargetPerWeekLabel(int $target_option): string
@@ -1096,6 +1070,6 @@ final class HabitsShortcode
 
     private function targetPerWeekOptions(): array
     {
-        return [7, 1, 2, 3, 4, 5, 6];
+        return HabitRules::targetPerWeekOptions();
     }
 }

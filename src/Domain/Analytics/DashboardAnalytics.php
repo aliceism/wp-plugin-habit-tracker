@@ -2,6 +2,7 @@
 
 namespace HabitTracker\Domain\Analytics;
 
+use HabitTracker\Domain\Rules\HabitRules;
 use HabitTracker\Infrastructure\Persistence\WpdbCheckinRepository;
 use HabitTracker\Infrastructure\Persistence\WpdbUserHabitRepository;
 
@@ -11,14 +12,6 @@ if (! defined('ABSPATH')) {
 
 final class DashboardAnalytics
 {
-    private const CATEGORY_MIND = 'mind';
-    private const CATEGORY_BODY = 'body';
-    private const CATEGORY_PRODUCTIVITY = 'productivity';
-    private const CATEGORY_LIFE = 'life';
-    private const FREQUENCY_DAILY = 'daily';
-    private const FREQUENCY_WEEKLY = 'weekly';
-    private const HISTORY_DAYS = 30;
-
     private WpdbUserHabitRepository $user_habits;
 
     private WpdbCheckinRepository $checkins;
@@ -32,7 +25,7 @@ final class DashboardAnalytics
     public function getContext(int $user_id, string $redirect_url): array
     {
         $today = wp_date('Y-m-d');
-        $history_dates = $this->buildHistoryDates($today, self::HISTORY_DAYS);
+        $history_dates = $this->buildHistoryDates($today, HabitRules::HISTORY_DAYS_DASHBOARD);
         $start_date = $history_dates[0] ?? $today;
         $month_dates = $this->buildCurrentMonthDates($today);
         $month_start = $month_dates[0] ?? $today;
@@ -155,19 +148,19 @@ final class DashboardAnalytics
         array $history_map
     ): array {
         $completed_month = $this->countCompletedFromHistoryMap($history_map);
-        $monthly_slots = $active_habits_count * self::HISTORY_DAYS;
+        $monthly_slots = $active_habits_count * HabitRules::HISTORY_DAYS_DASHBOARD;
         $monthly_percent = $monthly_slots > 0 ? (int) round(($completed_month / $monthly_slots) * 100) : 0;
         $monthly_percent = max(0, min(100, $monthly_percent));
         $today_percent = $active_habits_count > 0 ? (int) round(($checked_today / $active_habits_count) * 100) : 0;
         $today_percent = max(0, min(100, $today_percent));
         $active_days = $this->countActiveDaysFromHistoryMap($history_map);
-        $active_days_percent = self::HISTORY_DAYS > 0
-            ? (int) round(($active_days / self::HISTORY_DAYS) * 100)
+        $active_days_percent = HabitRules::HISTORY_DAYS_DASHBOARD > 0
+            ? (int) round(($active_days / HabitRules::HISTORY_DAYS_DASHBOARD) * 100)
             : 0;
         $active_days_percent = max(0, min(100, $active_days_percent));
         $streak_days = $this->calculateStreak($user_id, $today);
-        $streak_percent = self::HISTORY_DAYS > 0
-            ? (int) round(($streak_days / self::HISTORY_DAYS) * 100)
+        $streak_percent = HabitRules::HISTORY_DAYS_DASHBOARD > 0
+            ? (int) round(($streak_days / HabitRules::HISTORY_DAYS_DASHBOARD) * 100)
             : 0;
         $streak_percent = max(0, min(100, $streak_percent));
         $remaining_checks = max(0, $monthly_slots - $completed_month);
@@ -201,24 +194,10 @@ final class DashboardAnalytics
 
     private function groupHabitsByCategory(array $active_habits): array
     {
-        $grouped = [
-            self::CATEGORY_MIND => [],
-            self::CATEGORY_BODY => [],
-            self::CATEGORY_PRODUCTIVITY => [],
-            self::CATEGORY_LIFE => [],
-        ];
+        $grouped = array_fill_keys(HabitRules::categoryKeys(false), []);
 
         foreach ($active_habits as $habit) {
-            $category_key = sanitize_key((string) ($habit->category ?? ''));
-
-            if (
-                $category_key !== self::CATEGORY_MIND &&
-                $category_key !== self::CATEGORY_BODY &&
-                $category_key !== self::CATEGORY_PRODUCTIVITY &&
-                $category_key !== self::CATEGORY_LIFE
-            ) {
-                $category_key = self::CATEGORY_LIFE;
-            }
+            $category_key = HabitRules::normalizeCategoryKey((string) ($habit->category ?? ''));
 
             $grouped[$category_key][] = $habit;
         }
@@ -229,12 +208,7 @@ final class DashboardAnalytics
     private function flattenHabitsByCategory(array $habits_by_category): array
     {
         $ordered = [];
-        $category_order = [
-            self::CATEGORY_MIND,
-            self::CATEGORY_BODY,
-            self::CATEGORY_PRODUCTIVITY,
-            self::CATEGORY_LIFE,
-        ];
+        $category_order = HabitRules::categoryKeys(false);
 
         foreach ($category_order as $category_key) {
             $category_habits = $habits_by_category[$category_key] ?? [];
@@ -273,9 +247,9 @@ final class DashboardAnalytics
                 : [];
             $habit_start_date = $this->resolveHabitStartDate($habit, $month_start);
             $tracking_start = $habit_start_date > $month_start ? $habit_start_date : $month_start;
-            $frequency_type = $this->normalizeFrequencyType((string) ($habit->frequency_type ?? self::FREQUENCY_DAILY));
-            $target_count = $this->normalizeTargetCount((int) ($habit->target_count ?? 1));
-            $target_days_mask = $this->normalizeTargetDaysMask((int) ($habit->target_days_mask ?? 127));
+            $frequency_type = $this->normalizeFrequencyType((string) ($habit->frequency_type ?? HabitRules::FREQUENCY_DAILY));
+            $target_count = $this->normalizeTargetCount((int) ($habit->target_count ?? HabitRules::DEFAULT_TARGET_COUNT));
+            $target_days_mask = $this->normalizeTargetDaysMask((int) ($habit->target_days_mask ?? HabitRules::DEFAULT_TARGET_DAYS_MASK));
             $filtered_month_map = $this->filterDateMapForRange($habit_month_map, $tracking_start, $month_end);
             $filtered_history_map = $this->filterDateMapForRange($habit_history, $habit_start_date, $today);
             $completed = 0;
@@ -315,7 +289,7 @@ final class DashboardAnalytics
                     $target_count,
                     $target_days_mask
                 ),
-                'streak_unit' => $frequency_type === self::FREQUENCY_WEEKLY ? 'week' : 'day',
+                'streak_unit' => $frequency_type === HabitRules::FREQUENCY_WEEKLY ? 'week' : 'day',
             ];
         }
 
@@ -373,7 +347,7 @@ final class DashboardAnalytics
             return 0;
         }
 
-        if ($frequency_type === self::FREQUENCY_WEEKLY) {
+        if ($frequency_type === HabitRules::FREQUENCY_WEEKLY) {
             return $this->calculateWeeklyHabitStreakFromHistory(
                 $habit_history,
                 $today,
@@ -394,7 +368,7 @@ final class DashboardAnalytics
             $habit_history,
             $today,
             $target_days_mask,
-            self::HISTORY_DAYS
+            HabitRules::HISTORY_DAYS_DASHBOARD
         );
     }
 
@@ -409,7 +383,7 @@ final class DashboardAnalytics
             $today,
             $target_count,
             $target_days_mask,
-            self::HISTORY_DAYS
+            HabitRules::HISTORY_DAYS_DASHBOARD
         );
     }
 
@@ -465,19 +439,17 @@ final class DashboardAnalytics
 
     private function normalizeFrequencyType(string $frequency_type): string
     {
-        return sanitize_key($frequency_type) === self::FREQUENCY_WEEKLY
-            ? self::FREQUENCY_WEEKLY
-            : self::FREQUENCY_DAILY;
+        return HabitRules::normalizeFrequencyType($frequency_type);
     }
 
     private function normalizeTargetCount(int $target_count): int
     {
-        return max(1, min(7, $target_count));
+        return HabitRules::normalizeTargetCount($target_count);
     }
 
     private function normalizeTargetDaysMask(int $target_days_mask): int
     {
-        return max(0, min(127, $target_days_mask));
+        return HabitRules::normalizeTargetDaysMask($target_days_mask);
     }
 
     private function countCompletedFromHistoryMap(array $history_map): int

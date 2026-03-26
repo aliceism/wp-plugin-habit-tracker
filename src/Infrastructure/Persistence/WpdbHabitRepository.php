@@ -2,6 +2,7 @@
 
 namespace HabitTracker\Infrastructure\Persistence;
 
+use HabitTracker\Domain\Rules\HabitRules;
 use HabitTracker\Infrastructure\Database\Schema;
 
 if (! defined('ABSPATH')) {
@@ -10,11 +11,6 @@ if (! defined('ABSPATH')) {
 
 final class WpdbHabitRepository
 {
-    private const CATEGORY_MIND = 'mind';
-    private const CATEGORY_BODY = 'body';
-    private const CATEGORY_PRODUCTIVITY = 'productivity';
-    private const CATEGORY_LIFE = 'life';
-
     private \wpdb $wpdb;
 
     private string $habits_table;
@@ -258,18 +254,6 @@ final class WpdbHabitRepository
 
     private function normalizeCategoryKey(string $category): string
     {
-        $normalized = sanitize_key($category);
-        $allowed = [
-            self::CATEGORY_MIND => true,
-            self::CATEGORY_BODY => true,
-            self::CATEGORY_PRODUCTIVITY => true,
-            self::CATEGORY_LIFE => true,
-        ];
-
-        if (isset($allowed[$normalized])) {
-            return $normalized;
-        }
-
-        return self::CATEGORY_LIFE;
+        return HabitRules::normalizeCategoryKey($category);
     }
 }
