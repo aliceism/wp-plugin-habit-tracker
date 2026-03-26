@@ -24,16 +24,28 @@ final class DashboardShortcode
 
     private DashboardAnalytics $analytics;
 
+    private DashboardNavigation $navigation;
+
+    private DashboardNoticeService $notices;
+
     public function __construct(
         WpdbUserHabitRepository $user_habits,
         WpdbCheckinRepository $checkins,
-        ?DashboardAnalytics $analytics = null
+        ?DashboardAnalytics $analytics = null,
+        ?DashboardNavigation $navigation = null,
+        ?DashboardNoticeService $notices = null
     )
     {
         $this->checkins = $checkins;
         $this->analytics = $analytics instanceof DashboardAnalytics
             ? $analytics
             : new DashboardAnalytics($user_habits, $checkins);
+        $this->navigation = $navigation instanceof DashboardNavigation
+            ? $navigation
+            : new DashboardNavigation();
+        $this->notices = $notices instanceof DashboardNoticeService
+            ? $notices
+            : new DashboardNoticeService();
     }
 
     public function register(): void
@@ -159,7 +171,7 @@ final class DashboardShortcode
     public function handleToggleCheckinAjax(): void
     {
         if (! is_user_logged_in()) {
-            $login_url = wp_login_url($this->getCurrentUrl());
+            $login_url = wp_login_url($this->navigation->getCurrentUrl());
 
             if (function_exists('habitlab_get_page_url_by_slug')) {
                 $theme_login_url = habitlab_get_page_url_by_slug('login');
@@ -171,7 +183,7 @@ final class DashboardShortcode
 
             wp_send_json_error(
                 [
-                    'notice' => $this->getNoticePayload('checkin-invalid'),
+                    'notice' => $this->notices->getPayload('checkin-invalid'),
                     'login_url' => $login_url,
                 ],
                 401
@@ -183,7 +195,7 @@ final class DashboardShortcode
         if (! $is_nonce_valid) {
             wp_send_json_error(
                 [
-                    'notice' => $this->getNoticePayload('checkin-failed'),
+                    'notice' => $this->notices->getPayload('checkin-failed'),
                 ],
                 403
             );
@@ -194,7 +206,7 @@ final class DashboardShortcode
         if ($user_habit_id <= 0) {
             wp_send_json_error(
                 [
-                    'notice' => $this->getNoticePayload('checkin-invalid'),
+                    'notice' => $this->notices->getPayload('checkin-invalid'),
                 ],
                 400
             );
@@ -209,7 +221,7 @@ final class DashboardShortcode
 
             wp_send_json_error(
                 [
-                    'notice' => $this->getNoticePayload($notice),
+                    'notice' => $this->notices->getPayload($notice),
                 ],
                 400
             );
@@ -226,7 +238,7 @@ final class DashboardShortcode
                 'row' => $this->buildMonthRowPayload($month_rows, $user_habit_id),
                 'metrics_html' => $this->renderMetricsCardsHtml($context['metrics']),
                 'side_html' => $this->renderSidePanelsHtml($top_habits, $active_streaks),
-                'notice' => $this->getNoticePayload(
+                'notice' => $this->notices->getPayload(
                     $result === 'checked' ? 'checkin-checked' : 'checkin-unchecked'
                 ),
             ]
@@ -235,7 +247,7 @@ final class DashboardShortcode
 
     public function handleUnauthorized(): void
     {
-        $redirect = $this->resolveRedirectUrl();
+        $redirect = $this->navigation->resolveRedirectUrl();
 
         wp_safe_redirect(wp_login_url($redirect));
         exit;
@@ -243,7 +255,7 @@ final class DashboardShortcode
 
     private function renderLoggedOut(): string
     {
-        $login_url = wp_login_url($this->getCurrentUrl());
+        $login_url = wp_login_url($this->navigation->getCurrentUrl());
 
         if (function_exists('habitlab_get_page_url_by_slug')) {
             $theme_login_url = habitlab_get_page_url_by_slug('login');
@@ -265,7 +277,7 @@ final class DashboardShortcode
 
     private function renderLoggedOutInline(): string
     {
-        $login_url = wp_login_url($this->getCurrentUrl());
+        $login_url = wp_login_url($this->navigation->getCurrentUrl());
 
         if (function_exists('habitlab_get_page_url_by_slug')) {
             $theme_login_url = habitlab_get_page_url_by_slug('login');
@@ -584,7 +596,7 @@ final class DashboardShortcode
             return;
         }
 
-        $messages = $this->getNoticeMessages();
+        $messages = $this->notices->getMessages();
 
         if (! isset($messages[$notice])) {
             return;
@@ -594,41 +606,6 @@ final class DashboardShortcode
             <p><?php echo esc_html($messages[$notice]['text']); ?></p>
         </div>
         <?php
-    }
-
-    private function getNoticeMessages(): array
-    {
-        return [
-            'checkin-checked' => [
-                'class' => 'habit-tracker-notice habit-tracker-notice--success',
-                'text' => __('Habit checked for today.', 'habit-tracker'),
-            ],
-            'checkin-unchecked' => [
-                'class' => 'habit-tracker-notice habit-tracker-notice--info',
-                'text' => __('Habit unchecked for today.', 'habit-tracker'),
-            ],
-            'checkin-invalid' => [
-                'class' => 'habit-tracker-notice habit-tracker-notice--info',
-                'text' => __('This habit is not available for check-in.', 'habit-tracker'),
-            ],
-            'checkin-failed' => [
-                'class' => 'habit-tracker-notice habit-tracker-notice--error',
-                'text' => __('Could not update check status.', 'habit-tracker'),
-            ],
-        ];
-    }
-
-    private function getNoticePayload(string $notice): array
-    {
-        $messages = $this->getNoticeMessages();
-        $fallback = $messages['checkin-failed'];
-        $resolved = $messages[$notice] ?? $fallback;
-
-        return [
-            'key' => $notice,
-            'class' => (string) ($resolved['class'] ?? $fallback['class']),
-            'text' => (string) ($resolved['text'] ?? $fallback['text']),
-        ];
     }
 
     private function enqueueAssets(): void
@@ -671,100 +648,16 @@ final class DashboardShortcode
 
     private function redirectWithNotice(string $notice): void
     {
-        $redirect_url = $this->resolveRedirectUrl();
-        $redirect_url = remove_query_arg(self::NOTICE_QUERY_KEY, $redirect_url);
-        $redirect_url = add_query_arg(self::NOTICE_QUERY_KEY, $notice, $redirect_url);
+        $redirect_url = $this->navigation->resolveRedirectUrl();
+        $redirect_url = $this->navigation->appendNotice($redirect_url, self::NOTICE_QUERY_KEY, $notice);
 
         wp_safe_redirect($redirect_url);
         exit;
     }
 
-    private function resolveRedirectUrl(): string
-    {
-        $raw_redirect = wp_unslash($_POST['redirect_to'] ?? '');
-
-        if (! is_string($raw_redirect) || $raw_redirect === '' || $this->isAdminPostUrl($raw_redirect)) {
-            $raw_redirect = wp_unslash($_POST['_wp_http_referer'] ?? '');
-        }
-
-        if (! is_string($raw_redirect) || $raw_redirect === '' || $this->isAdminPostUrl($raw_redirect)) {
-            $raw_redirect = wp_get_referer();
-        }
-
-        if (! is_string($raw_redirect) || $raw_redirect === '' || $this->isAdminPostUrl($raw_redirect)) {
-            $raw_redirect = $this->getCurrentUrl();
-        }
-
-        return wp_validate_redirect($raw_redirect, $this->getDashboardFallbackUrl());
-    }
-
-    private function getCurrentUrl(): string
-    {
-        $request_uri = isset($_SERVER['REQUEST_URI']) ? wp_unslash($_SERVER['REQUEST_URI']) : '';
-
-        if (! is_string($request_uri) || $request_uri === '') {
-            return $this->getDashboardFallbackUrl();
-        }
-
-        $request_path = (string) wp_parse_url($request_uri, PHP_URL_PATH);
-        $request_query = (string) wp_parse_url($request_uri, PHP_URL_QUERY);
-
-        if ($request_path === '') {
-            return $this->getDashboardFallbackUrl();
-        }
-
-        $home_path = (string) wp_parse_url(home_url('/'), PHP_URL_PATH);
-        $home_path = '/' . trim($home_path, '/');
-        $normalized_path = $request_path;
-
-        if ($home_path !== '/' && $home_path !== '') {
-            if ($normalized_path === $home_path) {
-                $normalized_path = '/';
-            } elseif (str_starts_with($normalized_path, $home_path . '/')) {
-                $normalized_path = substr($normalized_path, strlen($home_path));
-            }
-        }
-
-        if ($normalized_path === '' || $normalized_path[0] !== '/') {
-            $normalized_path = '/' . ltrim($normalized_path, '/');
-        }
-
-        $current_url = home_url($normalized_path);
-
-        if ($request_query !== '') {
-            $current_url .= '?' . $request_query;
-        }
-
-        return $current_url;
-    }
-
-    private function isAdminPostUrl(string $url): bool
-    {
-        $path = (string) wp_parse_url($url, PHP_URL_PATH);
-
-        if ($path === '') {
-            return false;
-        }
-
-        return str_ends_with($path, '/wp-admin/admin-post.php');
-    }
-
-    private function getDashboardFallbackUrl(): string
-    {
-        if (function_exists('habitlab_get_page_url_by_slug')) {
-            $theme_dashboard_url = habitlab_get_page_url_by_slug('dashboard');
-
-            if (is_string($theme_dashboard_url) && $theme_dashboard_url !== '') {
-                return $theme_dashboard_url;
-            }
-        }
-
-        return home_url('/');
-    }
-
     private function getContext(): array
     {
-        return $this->analytics->getContext(get_current_user_id(), $this->getCurrentUrl());
+        return $this->analytics->getContext(get_current_user_id(), $this->navigation->getCurrentUrl());
     }
 
     private function buildTopHabits(array $rows): array
