@@ -22,4 +22,3 @@ if (! function_exists('sanitize_key')) {
 require_once HABIT_TRACKER_PATH . 'src/Support/Autoloader.php';
 
 \HabitTracker\Support\Autoloader::register();
-

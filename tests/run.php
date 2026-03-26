@@ -42,4 +42,3 @@ if ($failures !== []) {
 }
 
 fwrite(STDOUT, sprintf("All tests passed: %d\n", $total));
-
