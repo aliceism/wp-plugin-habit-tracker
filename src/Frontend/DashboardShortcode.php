@@ -20,23 +20,23 @@ final class DashboardShortcode
     private const NOTICE_QUERY_KEY = 'htd_notice';
     private const HISTORY_DAYS = 30;
 
-    private WpdbCheckinRepository $checkins;
-
     private DashboardAnalytics $analytics;
 
     private DashboardNavigation $navigation;
 
     private DashboardNoticeService $notices;
 
+    private DashboardCheckinActionHandler $actions;
+
     public function __construct(
         WpdbUserHabitRepository $user_habits,
         WpdbCheckinRepository $checkins,
         ?DashboardAnalytics $analytics = null,
         ?DashboardNavigation $navigation = null,
-        ?DashboardNoticeService $notices = null
+        ?DashboardNoticeService $notices = null,
+        ?DashboardCheckinActionHandler $actions = null
     )
     {
-        $this->checkins = $checkins;
         $this->analytics = $analytics instanceof DashboardAnalytics
             ? $analytics
             : new DashboardAnalytics($user_habits, $checkins);
@@ -46,6 +46,15 @@ final class DashboardShortcode
         $this->notices = $notices instanceof DashboardNoticeService
             ? $notices
             : new DashboardNoticeService();
+        $this->actions = $actions instanceof DashboardCheckinActionHandler
+            ? $actions
+            : new DashboardCheckinActionHandler(
+                $checkins,
+                $this->navigation,
+                $this->notices,
+                self::TOGGLE_CHECKIN_ACTION,
+                self::NOTICE_QUERY_KEY
+            );
     }
 
     public function register(): void
@@ -139,118 +148,29 @@ final class DashboardShortcode
 
     public function handleToggleCheckin(): void
     {
-        if (! is_user_logged_in()) {
-            $this->handleUnauthorized();
-        }
-
-        check_admin_referer(self::TOGGLE_CHECKIN_ACTION);
-
-        $user_habit_id = isset($_POST['user_habit_id']) ? absint(wp_unslash($_POST['user_habit_id'])) : 0;
-
-        if ($user_habit_id <= 0) {
-            $this->redirectWithNotice('checkin-invalid');
-        }
-
-        $result = $this->checkins->toggleCompletedForToday(get_current_user_id(), $user_habit_id);
-
-        if ($result === 'checked') {
-            $this->redirectWithNotice('checkin-checked');
-        }
-
-        if ($result === 'unchecked') {
-            $this->redirectWithNotice('checkin-unchecked');
-        }
-
-        if ($result === 'invalid' || $result === 'not-found') {
-            $this->redirectWithNotice('checkin-invalid');
-        }
-
-        $this->redirectWithNotice('checkin-failed');
+        $this->actions->handleToggleCheckin();
     }
 
     public function handleToggleCheckinAjax(): void
     {
-        if (! is_user_logged_in()) {
-            $login_url = wp_login_url($this->navigation->getCurrentUrl());
+        $this->actions->handleToggleCheckinAjax(function (int $user_habit_id, string $result): array {
+            unset($result);
+            $context = $this->getContext();
+            $month_rows = $this->buildMonthRowsFromContext($context);
+            $top_habits = $this->buildTopHabits($month_rows);
+            $active_streaks = $this->buildActiveStreaks($month_rows);
 
-            if (function_exists('habitlab_get_page_url_by_slug')) {
-                $theme_login_url = habitlab_get_page_url_by_slug('login');
-
-                if (is_string($theme_login_url) && $theme_login_url !== '') {
-                    $login_url = $theme_login_url;
-                }
-            }
-
-            wp_send_json_error(
-                [
-                    'notice' => $this->notices->getPayload('checkin-invalid'),
-                    'login_url' => $login_url,
-                ],
-                401
-            );
-        }
-
-        $is_nonce_valid = check_ajax_referer(self::TOGGLE_CHECKIN_ACTION, '_wpnonce', false);
-
-        if (! $is_nonce_valid) {
-            wp_send_json_error(
-                [
-                    'notice' => $this->notices->getPayload('checkin-failed'),
-                ],
-                403
-            );
-        }
-
-        $user_habit_id = isset($_POST['user_habit_id']) ? absint(wp_unslash($_POST['user_habit_id'])) : 0;
-
-        if ($user_habit_id <= 0) {
-            wp_send_json_error(
-                [
-                    'notice' => $this->notices->getPayload('checkin-invalid'),
-                ],
-                400
-            );
-        }
-
-        $result = $this->checkins->toggleCompletedForToday(get_current_user_id(), $user_habit_id);
-
-        if ($result !== 'checked' && $result !== 'unchecked') {
-            $notice = ($result === 'invalid' || $result === 'not-found')
-                ? 'checkin-invalid'
-                : 'checkin-failed';
-
-            wp_send_json_error(
-                [
-                    'notice' => $this->notices->getPayload($notice),
-                ],
-                400
-            );
-        }
-
-        $context = $this->getContext();
-        $month_rows = $this->buildMonthRowsFromContext($context);
-        $top_habits = $this->buildTopHabits($month_rows);
-        $active_streaks = $this->buildActiveStreaks($month_rows);
-
-        wp_send_json_success(
-            [
-                'checked' => $result === 'checked',
+            return [
                 'row' => $this->buildMonthRowPayload($month_rows, $user_habit_id),
                 'metrics_html' => $this->renderMetricsCardsHtml($context['metrics']),
                 'side_html' => $this->renderSidePanelsHtml($top_habits, $active_streaks),
-                'notice' => $this->notices->getPayload(
-                    $result === 'checked' ? 'checkin-checked' : 'checkin-unchecked'
-                ),
-            ]
-        );
+            ];
+        });
     }
 
     public function handleUnauthorized(): void
     {
-        $redirect = $this->navigation->resolveRedirectUrl();
-
-        wp_safe_redirect(wp_login_url($redirect));
-        exit;
+        $this->actions->handleUnauthorized();
     }
 
     private function renderLoggedOut(): string
@@ -644,15 +564,6 @@ final class DashboardShortcode
                 'toggleAction' => self::TOGGLE_CHECKIN_ACTION,
             ]
         );
-    }
-
-    private function redirectWithNotice(string $notice): void
-    {
-        $redirect_url = $this->navigation->resolveRedirectUrl();
-        $redirect_url = $this->navigation->appendNotice($redirect_url, self::NOTICE_QUERY_KEY, $notice);
-
-        wp_safe_redirect($redirect_url);
-        exit;
     }
 
     private function getContext(): array
