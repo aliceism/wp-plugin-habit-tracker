@@ -47,27 +47,35 @@ final class ProgressShortcode
         }
 
         $context = $this->buildContext();
+        $metrics_html = $this->renderMetricsSectionHtml($context['category_stats']);
+        $breakdown_html = $this->renderBreakdownSectionHtml(
+            $context['week_chart'],
+            $context['month_chart'],
+            $context['habit_rows'],
+            $context['summary'],
+            $context['category_stats'],
+            $context['has_active_habits'],
+            false
+        );
+
+        $theme_html = ThemeTemplate::render(
+            'progress',
+            [
+                'metrics_html' => $metrics_html,
+                'breakdown_html' => $breakdown_html,
+                'context' => $context,
+            ]
+        );
+
+        if ($theme_html !== '') {
+            return $theme_html;
+        }
 
         ob_start();
         ?>
         <div class="habit-tracker-progress">
-            <div class="app-section app-metrics-grid habit-tracker-progress-metrics">
-                <?php $this->renderMetrics($context['category_stats']); ?>
-            </div>
-
-            <?php
-            $this->renderCharts(
-                $context['week_chart'],
-                $context['month_chart'],
-                $context['habit_rows'],
-                $context['has_active_habits']
-            );
-            ?>
-
-            <div class="habit-tracker-progress-sections">
-                <?php $this->renderCategoryBreakdown($context['category_stats'], $context['has_active_habits']); ?>
-                <?php $this->renderInsights($context['summary'], $context['has_active_habits']); ?>
-            </div>
+            <?php echo $metrics_html; ?>
+            <?php echo $breakdown_html; ?>
         </div>
         <?php
 
@@ -84,15 +92,7 @@ final class ProgressShortcode
         }
 
         $context = $this->buildContext();
-
-        ob_start();
-        ?>
-        <div class="app-section app-metrics-grid habit-tracker-progress-metrics">
-            <?php $this->renderMetrics($context['category_stats']); ?>
-        </div>
-        <?php
-
-        return (string) ob_get_clean();
+        return $this->renderMetricsSectionHtml($context['category_stats']);
     }
 
     public function renderBreakdownShortcode(array $atts = [], ?string $content = null, string $shortcode_tag = ''): string
@@ -105,27 +105,16 @@ final class ProgressShortcode
         }
 
         $context = $this->buildContext();
-
-        ob_start();
-        ?>
-        <div class="habit-tracker-progress">
-            <?php
-            $this->renderCharts(
-                $context['week_chart'],
-                $context['month_chart'],
-                $context['habit_rows'],
-                $context['has_active_habits']
-            );
-            ?>
-
-            <div class="habit-tracker-progress-sections">
-                <?php $this->renderCategoryBreakdown($context['category_stats'], $context['has_active_habits']); ?>
-                <?php $this->renderInsights($context['summary'], $context['has_active_habits']); ?>
-            </div>
-        </div>
-        <?php
-
-        return (string) ob_get_clean();
+        $breakdown_html = $this->renderBreakdownSectionHtml(
+            $context['week_chart'],
+            $context['month_chart'],
+            $context['habit_rows'],
+            $context['summary'],
+            $context['category_stats'],
+            $context['has_active_habits'],
+            true
+        );
+        return $breakdown_html;
     }
 
     private function renderLoggedOut(): string
@@ -591,25 +580,98 @@ final class ProgressShortcode
         return implode(' ', $coordinates);
     }
 
+    private function renderMetricsSectionHtml(array $category_stats): string
+    {
+        $theme_html = ThemeTemplate::render(
+            'progress-metrics',
+            [
+                'category_stats' => $category_stats,
+            ]
+        );
+
+        if ($theme_html !== '') {
+            return $theme_html;
+        }
+
+        ob_start();
+        ?>
+        <div class="app-section app-metrics-grid habit-tracker-progress-metrics">
+            <?php $this->renderMetrics($category_stats); ?>
+        </div>
+        <?php
+
+        return (string) ob_get_clean();
+    }
+
+    private function renderBreakdownSectionHtml(
+        array $week_chart,
+        array $month_chart,
+        array $habit_rows,
+        array $summary,
+        array $category_stats,
+        bool $has_active_habits,
+        bool $include_root_wrapper
+    ): string {
+        $month_points = isset($month_chart['points']) && is_array($month_chart['points'])
+            ? $month_chart['points']
+            : [];
+        $theme_html = ThemeTemplate::render(
+            'progress-breakdown',
+            [
+                'week_chart' => $week_chart,
+                'month_chart' => $month_chart,
+                'habit_rows' => $habit_rows,
+                'summary' => $summary,
+                'category_stats' => $category_stats,
+                'has_active_habits' => $has_active_habits,
+                'include_root_wrapper' => $include_root_wrapper,
+                'month_svg_points' => $this->buildSvgPolylinePoints($month_points),
+            ]
+        );
+
+        if ($theme_html !== '') {
+            return $theme_html;
+        }
+
+        ob_start();
+        ?>
+        <?php if ($include_root_wrapper) : ?>
+        <div class="habit-tracker-progress">
+        <?php endif; ?>
+            <?php $this->renderCharts($week_chart, $month_chart, $habit_rows, $has_active_habits); ?>
+            <div class="habit-tracker-progress-sections">
+                <?php $this->renderCategoryBreakdown($category_stats, $has_active_habits); ?>
+                <?php $this->renderInsights($summary, $has_active_habits); ?>
+            </div>
+        <?php if ($include_root_wrapper) : ?>
+        </div>
+        <?php endif; ?>
+        <?php
+
+        return (string) ob_get_clean();
+    }
+
     private function enqueueAssets(): void
     {
-        $style_path = HABIT_TRACKER_PATH . 'assets/css/frontend.css';
         $script_path = HABIT_TRACKER_PATH . 'assets/js/frontend.js';
-
-        $style_version = is_readable($style_path)
-            ? (string) filemtime($style_path)
-            : HABIT_TRACKER_VERSION;
 
         $script_version = is_readable($script_path)
             ? (string) filemtime($script_path)
             : HABIT_TRACKER_VERSION;
 
-        wp_enqueue_style(
-            'habit-tracker-frontend',
-            HABIT_TRACKER_URL . 'assets/css/frontend.css',
-            [],
-            $style_version
-        );
+        if (FrontendAssetPolicy::shouldEnqueuePluginStyles()) {
+            $style_path = HABIT_TRACKER_PATH . 'assets/css/frontend.css';
+            $style_version = is_readable($style_path)
+                ? (string) filemtime($style_path)
+                : HABIT_TRACKER_VERSION;
+
+            wp_enqueue_style(
+                'habit-tracker-frontend',
+                HABIT_TRACKER_URL . 'assets/css/frontend.css',
+                [],
+                $style_version
+            );
+        }
 
         wp_enqueue_script(
             'habit-tracker-frontend',

@@ -80,17 +80,30 @@ final class DashboardShortcode
         }
 
         $context = $this->getContext();
+        $notice_html = $this->renderNoticeHtml();
+        $metrics_html = $this->renderMetricsSectionHtml($context['metrics']);
+        $panels_html = $this->renderPanelsHtml($context);
+
+        $theme_html = ThemeTemplate::render(
+            'dashboard',
+            [
+                'notice_html' => $notice_html,
+                'metrics_html' => $metrics_html,
+                'panels_html' => $panels_html,
+                'context' => $context,
+            ]
+        );
+
+        if ($theme_html !== '') {
+            return $theme_html;
+        }
 
         ob_start();
         ?>
         <div class="habit-tracker-dashboard">
-            <?php $this->renderNotice(); ?>
-
-            <div class="app-section app-metrics-grid habit-tracker-dashboard-metrics">
-                <?php $this->renderMetricsCards($context['metrics']); ?>
-            </div>
-
-            <?php $this->renderPanels($context); ?>
+            <?php echo $notice_html; ?>
+            <?php echo $metrics_html; ?>
+            <?php echo $panels_html; ?>
         </div>
         <?php
 
@@ -101,11 +114,21 @@ final class DashboardShortcode
     {
         unset($atts, $content, $shortcode_tag);
         $this->enqueueAssets();
+        $notice_html = $this->renderNoticeHtml();
+        $context = is_user_logged_in() ? $this->getContext() : [];
+        $theme_html = ThemeTemplate::render(
+            'dashboard-notice',
+            [
+                'notice_html' => $notice_html,
+                'context' => $context,
+            ]
+        );
 
-        ob_start();
-        $this->renderNotice();
+        if ($theme_html !== '') {
+            return $theme_html;
+        }
 
-        return (string) ob_get_clean();
+        return $notice_html;
     }
 
     public function renderMetricsShortcode(array $atts = [], ?string $content = null, string $shortcode_tag = ''): string
@@ -118,15 +141,7 @@ final class DashboardShortcode
         }
 
         $context = $this->getContext();
-
-        ob_start();
-        ?>
-        <div class="app-section app-metrics-grid habit-tracker-dashboard-metrics">
-            <?php $this->renderMetricsCards($context['metrics']); ?>
-        </div>
-        <?php
-
-        return (string) ob_get_clean();
+        return $this->renderMetricsSectionHtml($context['metrics']);
     }
 
     public function renderPanelsShortcode(array $atts = [], ?string $content = null, string $shortcode_tag = ''): string
@@ -139,11 +154,7 @@ final class DashboardShortcode
         }
 
         $context = $this->getContext();
-
-        ob_start();
-        $this->renderPanels($context);
-
-        return (string) ob_get_clean();
+        return $this->renderPanelsHtml($context);
     }
 
     public function handleToggleCheckin(): void
@@ -217,57 +228,7 @@ final class DashboardShortcode
 
     private function renderMetricsCards(array $metrics): void
     {
-        $current_month_label = wp_date('F Y');
-        $current_day = (int) wp_date('j');
-        $days_in_month = max(1, (int) wp_date('t'));
-        $month_progress_percent = (int) round(($current_day / $days_in_month) * 100);
-        $month_progress_percent = max(0, min(100, $month_progress_percent));
-
-        $cards = [
-            [
-                'class' => 'month',
-                'label' => '',
-                'value' => $month_progress_percent,
-                'stat' => $current_month_label,
-                'meta' => sprintf(
-                    esc_html__('Day %1$d of %2$d', 'habit-tracker'),
-                    $current_day,
-                    $days_in_month
-                ),
-            ],
-            [
-                'class' => 'momentum',
-                'label' => __('Momentum', 'habit-tracker'),
-                'value' => (int) $metrics['streak_percent'],
-                'stat' => sprintf(
-                    esc_html(_n('%d day', '%d days', (int) $metrics['streak_days'], 'habit-tracker')),
-                    (int) $metrics['streak_days']
-                ),
-                'meta' => __('Current streak length.', 'habit-tracker'),
-            ],
-            [
-                'class' => 'today',
-                'label' => __('Today', 'habit-tracker'),
-                'value' => (int) $metrics['today_completion_percent'],
-                'stat' => sprintf(
-                    esc_html__('%1$d / %2$d habits', 'habit-tracker'),
-                    (int) $metrics['checked_today'],
-                    (int) $metrics['active_habits']
-                ),
-                'meta' => __('Checked habits for today.', 'habit-tracker'),
-            ],
-            [
-                'class' => 'coverage',
-                'label' => __('Active Days', 'habit-tracker'),
-                'value' => (int) $metrics['active_days_percent'],
-                'stat' => sprintf(
-                    esc_html__('%1$d / %2$d days', 'habit-tracker'),
-                    (int) $metrics['active_days'],
-                    HabitRules::HISTORY_DAYS_DASHBOARD
-                ),
-                'meta' => __('Days with at least one completed check.', 'habit-tracker'),
-            ],
-        ];
+        $cards = $this->buildMetricCards($metrics);
 
         ?>
         <?php foreach ($cards as $card) : ?>
@@ -455,18 +416,158 @@ final class DashboardShortcode
 
     private function renderMetricsCardsHtml(array $metrics): string
     {
+        $cards = $this->buildMetricCards($metrics);
+        $theme_html = ThemeTemplate::render(
+            'dashboard-metrics-cards',
+            [
+                'cards' => $cards,
+                'metrics' => $metrics,
+            ]
+        );
+
+        if ($theme_html !== '') {
+            return $theme_html;
+        }
+
         ob_start();
         $this->renderMetricsCards($metrics);
 
         return (string) ob_get_clean();
     }
 
+    private function renderMetricsSectionHtml(array $metrics): string
+    {
+        $cards = $this->buildMetricCards($metrics);
+        $theme_html = ThemeTemplate::render(
+            'dashboard-metrics',
+            [
+                'cards' => $cards,
+                'metrics' => $metrics,
+            ]
+        );
+
+        if ($theme_html !== '') {
+            return $theme_html;
+        }
+
+        ob_start();
+        ?>
+        <div class="app-section app-metrics-grid habit-tracker-dashboard-metrics">
+            <?php $this->renderMetricsCards($metrics); ?>
+        </div>
+        <?php
+
+        return (string) ob_get_clean();
+    }
+
     private function renderSidePanelsHtml(array $top_habits, array $active_streaks): string
     {
+        $theme_html = ThemeTemplate::render(
+            'dashboard-side',
+            [
+                'top_habits' => $top_habits,
+                'active_streaks' => $active_streaks,
+            ]
+        );
+
+        if ($theme_html !== '') {
+            return $theme_html;
+        }
+
         ob_start();
         $this->renderSidePanelsContent($top_habits, $active_streaks);
 
         return (string) ob_get_clean();
+    }
+
+    private function renderPanelsHtml(array $context): string
+    {
+        $month_rows = $this->buildMonthRowsFromContext($context);
+        $top_habits = $this->buildTopHabits($month_rows);
+        $active_streaks = $this->buildActiveStreaks($month_rows);
+        $side_html = $this->renderSidePanelsHtml($top_habits, $active_streaks);
+        $theme_html = ThemeTemplate::render(
+            'dashboard-panels',
+            [
+                'context' => $context,
+                'month_rows' => $month_rows,
+                'top_habits' => $top_habits,
+                'active_streaks' => $active_streaks,
+                'side_html' => $side_html,
+                'admin_post_url' => admin_url('admin-post.php'),
+                'toggle_action' => self::TOGGLE_CHECKIN_ACTION,
+            ]
+        );
+
+        if (
+            $theme_html !== '' &&
+            (
+                $month_rows === [] ||
+                strpos($theme_html, 'habit-tracker-month-cell--action') !== false
+            )
+        ) {
+            return $theme_html;
+        }
+
+        ob_start();
+        $this->renderPanels($context);
+
+        return (string) ob_get_clean();
+    }
+
+    private function buildMetricCards(array $metrics): array
+    {
+        $current_month_label = wp_date('F Y');
+        $current_day = (int) wp_date('j');
+        $days_in_month = max(1, (int) wp_date('t'));
+        $month_progress_percent = (int) round(($current_day / $days_in_month) * 100);
+        $month_progress_percent = max(0, min(100, $month_progress_percent));
+
+        return [
+            [
+                'class' => 'month',
+                'label' => '',
+                'value' => $month_progress_percent,
+                'stat' => $current_month_label,
+                'meta' => sprintf(
+                    esc_html__('Day %1$d of %2$d', 'habit-tracker'),
+                    $current_day,
+                    $days_in_month
+                ),
+            ],
+            [
+                'class' => 'momentum',
+                'label' => __('Momentum', 'habit-tracker'),
+                'value' => (int) $metrics['streak_percent'],
+                'stat' => sprintf(
+                    esc_html(_n('%d day', '%d days', (int) $metrics['streak_days'], 'habit-tracker')),
+                    (int) $metrics['streak_days']
+                ),
+                'meta' => __('Current streak length.', 'habit-tracker'),
+            ],
+            [
+                'class' => 'today',
+                'label' => __('Today', 'habit-tracker'),
+                'value' => (int) $metrics['today_completion_percent'],
+                'stat' => sprintf(
+                    esc_html__('%1$d / %2$d habits', 'habit-tracker'),
+                    (int) $metrics['checked_today'],
+                    (int) $metrics['active_habits']
+                ),
+                'meta' => __('Checked habits for today.', 'habit-tracker'),
+            ],
+            [
+                'class' => 'coverage',
+                'label' => __('Active Days', 'habit-tracker'),
+                'value' => (int) $metrics['active_days_percent'],
+                'stat' => sprintf(
+                    esc_html__('%1$d / %2$d days', 'habit-tracker'),
+                    (int) $metrics['active_days'],
+                    HabitRules::HISTORY_DAYS_DASHBOARD
+                ),
+                'meta' => __('Days with at least one completed check.', 'habit-tracker'),
+            ],
+        ];
     }
 
     private function buildMonthRowsFromContext(array $context): array
@@ -508,45 +609,58 @@ final class DashboardShortcode
 
     private function renderNotice(): void
     {
+        $notice_html = $this->renderNoticeHtml();
+
+        if ($notice_html === '') {
+            return;
+        }
+
+        echo $notice_html;
+    }
+
+    private function renderNoticeHtml(): string
+    {
         $notice = isset($_GET[self::NOTICE_QUERY_KEY])
             ? sanitize_key(wp_unslash($_GET[self::NOTICE_QUERY_KEY]))
             : '';
 
         if ($notice === '') {
-            return;
+            return '';
         }
 
         $messages = $this->notices->getMessages();
-
         if (! isset($messages[$notice])) {
-            return;
+            return '';
         }
-        ?>
-        <div class="<?php echo esc_attr($messages[$notice]['class']); ?>">
-            <p><?php echo esc_html($messages[$notice]['text']); ?></p>
-        </div>
-        <?php
+
+        return sprintf(
+            '<div class="%1$s"><p>%2$s</p></div>',
+            esc_attr((string) $messages[$notice]['class']),
+            esc_html((string) $messages[$notice]['text'])
+        );
     }
 
     private function enqueueAssets(): void
     {
-        $style_path = HABIT_TRACKER_PATH . 'assets/css/frontend.css';
         $script_path = HABIT_TRACKER_PATH . 'assets/js/frontend.js';
-
-        $style_version = is_readable($style_path)
-            ? (string) filemtime($style_path)
-            : HABIT_TRACKER_VERSION;
 
         $script_version = is_readable($script_path)
             ? (string) filemtime($script_path)
             : HABIT_TRACKER_VERSION;
 
-        wp_enqueue_style(
-            'habit-tracker-frontend',
-            HABIT_TRACKER_URL . 'assets/css/frontend.css',
-            [],
-            $style_version
-        );
+        if (FrontendAssetPolicy::shouldEnqueuePluginStyles()) {
+            $style_path = HABIT_TRACKER_PATH . 'assets/css/frontend.css';
+            $style_version = is_readable($style_path)
+                ? (string) filemtime($style_path)
+                : HABIT_TRACKER_VERSION;
+
+            wp_enqueue_style(
+                'habit-tracker-frontend',
+                HABIT_TRACKER_URL . 'assets/css/frontend.css',
+                [],
+                $style_version
+            );
+        }
 
         wp_enqueue_script(
             'habit-tracker-frontend',

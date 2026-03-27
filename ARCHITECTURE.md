@@ -15,6 +15,40 @@ The `habitlab` theme owns:
 - page routing by slug
 - app shell and branded layout
 - navigation and page templates
+- all frontend styling for habit tracker UI
+- optional template overrides for shortcode markup
+
+## Theme-First Rendering
+
+Frontend shortcodes in the plugin now support theme template overrides.  
+If an override exists, the plugin uses it; otherwise it falls back to internal markup.
+
+Template lookup order for each template is:
+
+1. `wp-content/themes/<active-theme>/habit-tracker/<template>.php`
+2. `wp-content/themes/<active-theme>/<template>.php`
+
+Supported template names:
+
+- `habits`
+- `habits-notice`
+- `habits-stack`
+- `habits-shared`
+- `habits-custom`
+- `dashboard`
+- `dashboard-notice`
+- `dashboard-metrics`
+- `dashboard-metrics-cards`
+- `dashboard-panels`
+- `dashboard-side`
+- `progress`
+- `progress-metrics`
+- `progress-breakdown`
+
+Plugin CSS enqueue is now policy-driven:
+
+- if the HabitLab theme is active, plugin CSS is skipped by default
+- if needed, this can be forced with the filter `habit_tracker_enqueue_plugin_styles`
 
 ## Core Product Flows
 

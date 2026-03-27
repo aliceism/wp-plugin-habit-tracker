@@ -64,14 +64,41 @@ final class HabitsShortcode
         }
 
         $context = $this->getLoggedInContext();
+        $notice_key = $this->getCurrentNoticeKey();
+        $notice_html = $notice_key !== '' ? $this->renderNoticeHtmlByCode($notice_key) : '';
+        $stack_html = $this->renderStackSectionHtml(
+            $context['user_dashboard_habits'],
+            $context['redirect_url']
+        );
+        $shared_html = $this->renderSharedSectionHtml(
+            $context['shared_habits'],
+            $context['active_shared_habit_ids'],
+            $context['redirect_url']
+        );
+        $custom_html = $this->renderCustomSectionHtml($context['redirect_url']);
+
+        $theme_html = ThemeTemplate::render(
+            'habits',
+            [
+                'notice_key' => $notice_key,
+                'notice_html' => $notice_html,
+                'stack_html' => $stack_html,
+                'shared_html' => $shared_html,
+                'custom_html' => $custom_html,
+                'context' => $context,
+            ]
+        );
+
+        if ($theme_html !== '') {
+            return $theme_html;
+        }
 
         ob_start();
         ?>
         <div class="habit-tracker-habits">
-            <?php $this->renderNotice(); ?>
-
-            <?php $this->renderStackSection($context['user_dashboard_habits']); ?>
-            <?php $this->renderSharedSection($context['shared_habits'], $context['active_shared_habit_ids'], $context['redirect_url']); ?>
+            <?php echo $notice_html; ?>
+            <?php echo $stack_html; ?>
+            <?php echo $shared_html; ?>
         </div>
         <?php
 
@@ -82,11 +109,22 @@ final class HabitsShortcode
     {
         unset($atts, $content, $shortcode_tag);
         $this->enqueueAssets();
+        $notice_key = $this->getCurrentNoticeKey();
+        $notice_html = $notice_key !== '' ? $this->renderNoticeHtmlByCode($notice_key) : '';
 
-        ob_start();
-        $this->renderNotice();
+        $theme_html = ThemeTemplate::render(
+            'habits-notice',
+            [
+                'notice_key' => $notice_key,
+                'notice_html' => $notice_html,
+            ]
+        );
 
-        return (string) ob_get_clean();
+        if ($theme_html !== '') {
+            return $theme_html;
+        }
+
+        return $notice_html;
     }
 
     public function renderStackShortcode(array $atts = [], ?string $content = null, string $shortcode_tag = ''): string
@@ -99,11 +137,10 @@ final class HabitsShortcode
         }
 
         $context = $this->getLoggedInContext();
-
-        ob_start();
-        $this->renderStackSection($context['user_dashboard_habits']);
-
-        return (string) ob_get_clean();
+        return $this->renderStackSectionHtml(
+            $context['user_dashboard_habits'],
+            $context['redirect_url']
+        );
     }
 
     public function renderSharedShortcode(array $atts = [], ?string $content = null, string $shortcode_tag = ''): string
@@ -116,11 +153,12 @@ final class HabitsShortcode
         }
 
         $context = $this->getLoggedInContext();
-
-        ob_start();
-        $this->renderSharedSection($context['shared_habits'], $context['active_shared_habit_ids'], $context['redirect_url']);
-
-        return (string) ob_get_clean();
+        $shared_html = $this->renderSharedSectionHtml(
+            $context['shared_habits'],
+            $context['active_shared_habit_ids'],
+            $context['redirect_url']
+        );
+        return $shared_html;
     }
 
     public function renderCustomShortcode(array $atts = [], ?string $content = null, string $shortcode_tag = ''): string
@@ -133,11 +171,7 @@ final class HabitsShortcode
         }
 
         $context = $this->getLoggedInContext();
-
-        ob_start();
-        $this->renderCustomSection($context['redirect_url']);
-
-        return (string) ob_get_clean();
+        return $this->renderCustomSectionHtml($context['redirect_url']);
     }
 
     public function handleAddSharedHabit(): void
@@ -381,8 +415,12 @@ final class HabitsShortcode
         );
     }
 
-    private function renderStackSection(array $user_dashboard_habits): void
+    private function renderStackSection(array $user_dashboard_habits, ?string $redirect_url = null): void
     {
+        $resolved_redirect = is_string($redirect_url) && $redirect_url !== ''
+            ? $redirect_url
+            : $this->getCurrentUrl();
+
         ?>
         <article class="card app-card habit-tracker-block habit-tracker-block--stack">
             <div class="habit-tracker-block__header">
@@ -405,7 +443,7 @@ final class HabitsShortcode
                                     <form class="habit-tracker-inline-form" method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
                                         <input type="hidden" name="action" value="<?php echo esc_attr(self::REMOVE_USER_HABIT_ACTION); ?>">
                                         <input type="hidden" name="user_habit_id" value="<?php echo esc_attr((string) $stack_item_id); ?>">
-                                        <input type="hidden" name="redirect_to" value="<?php echo esc_url($this->getCurrentUrl()); ?>">
+                                        <input type="hidden" name="redirect_to" value="<?php echo esc_url($resolved_redirect); ?>">
                                         <?php wp_nonce_field(self::REMOVE_USER_HABIT_ACTION); ?>
                                         <button
                                             type="submit"
@@ -691,15 +729,20 @@ final class HabitsShortcode
 
     private function renderNotice(): void
     {
-        $notice = isset($_GET[self::NOTICE_QUERY_KEY])
-            ? sanitize_key(wp_unslash($_GET[self::NOTICE_QUERY_KEY]))
-            : '';
+        $notice = $this->getCurrentNoticeKey();
 
         if ($notice === '') {
             return;
         }
 
-        $this->renderNoticeByCode($notice);
+        echo $this->renderNoticeHtmlByCode($notice);
+    }
+
+    private function getCurrentNoticeKey(): string
+    {
+        return isset($_GET[self::NOTICE_QUERY_KEY])
+            ? sanitize_key(wp_unslash($_GET[self::NOTICE_QUERY_KEY]))
+            : '';
     }
 
     private function renderNoticeByCode(string $notice): void
@@ -784,18 +827,47 @@ final class HabitsShortcode
         return (string) ob_get_clean();
     }
 
-    private function renderStackSectionHtml(array $user_dashboard_habits): string
+    private function renderStackSectionHtml(array $user_dashboard_habits, ?string $redirect_url = null): string
     {
+        $context = $this->buildStackTemplateContext($user_dashboard_habits, $redirect_url);
+        $theme_html = ThemeTemplate::render('habits-stack', $context);
+
+        if ($theme_html !== '') {
+            return $theme_html;
+        }
+
         ob_start();
-        $this->renderStackSection($user_dashboard_habits);
+        $this->renderStackSection($user_dashboard_habits, (string) $context['redirect_url']);
 
         return (string) ob_get_clean();
     }
 
     private function renderSharedSectionHtml(array $shared_habits, array $active_shared_habit_ids, string $redirect_url): string
     {
+        $context = $this->buildSharedTemplateContext($shared_habits, $active_shared_habit_ids, $redirect_url);
+        $theme_html = ThemeTemplate::render('habits-shared', $context);
+
+        if ($theme_html !== '') {
+            return $theme_html;
+        }
+
         ob_start();
         $this->renderSharedSection($shared_habits, $active_shared_habit_ids, $redirect_url);
+
+        return (string) ob_get_clean();
+    }
+
+    private function renderCustomSectionHtml(string $redirect_url): string
+    {
+        $context = $this->buildCustomTemplateContext($redirect_url);
+        $theme_html = ThemeTemplate::render('habits-custom', $context);
+
+        if ($theme_html !== '') {
+            return $theme_html;
+        }
+
+        ob_start();
+        $this->renderCustomSection($redirect_url);
 
         return (string) ob_get_clean();
     }
@@ -837,16 +909,35 @@ final class HabitsShortcode
     private function sendMutationAjaxSuccessPayload(string $notice, bool $ok): void
     {
         $context = $this->getLoggedInContext();
+        $notice_html = $this->renderNoticeHtmlByCode($notice);
+        $stack_html = $this->renderStackSectionHtml(
+            $context['user_dashboard_habits'],
+            $context['redirect_url']
+        );
+        $shared_html = $this->renderSharedSectionHtml(
+            $context['shared_habits'],
+            $context['active_shared_habit_ids'],
+            $context['redirect_url']
+        );
+
+        $themed_notice_html = ThemeTemplate::render(
+            'habits-notice',
+            [
+                'notice_key' => $notice,
+                'notice_html' => $notice_html,
+            ]
+        );
+
+        if ($themed_notice_html !== '') {
+            $notice_html = $themed_notice_html;
+        }
+
         $payload = [
             'ok' => $ok,
             'notice' => $this->getNoticePayload($notice),
-            'notice_html' => $this->renderNoticeHtmlByCode($notice),
-            'stack_html' => $this->renderStackSectionHtml($context['user_dashboard_habits']),
-            'shared_html' => $this->renderSharedSectionHtml(
-                $context['shared_habits'],
-                $context['active_shared_habit_ids'],
-                $context['redirect_url']
-            ),
+            'notice_html' => $notice_html,
+            'stack_html' => $stack_html,
+            'shared_html' => $shared_html,
             'close_modals' => (
                 $notice === 'shared-added' ||
                 $notice === 'shared-already-added' ||
@@ -859,23 +950,25 @@ final class HabitsShortcode
 
     private function enqueueAssets(): void
     {
-        $style_path = HABIT_TRACKER_PATH . 'assets/css/frontend.css';
         $script_path = HABIT_TRACKER_PATH . 'assets/js/frontend.js';
-
-        $style_version = is_readable($style_path)
-            ? (string) filemtime($style_path)
-            : HABIT_TRACKER_VERSION;
 
         $script_version = is_readable($script_path)
             ? (string) filemtime($script_path)
             : HABIT_TRACKER_VERSION;
 
-        wp_enqueue_style(
-            'habit-tracker-frontend',
-            HABIT_TRACKER_URL . 'assets/css/frontend.css',
-            [],
-            $style_version
-        );
+        if (FrontendAssetPolicy::shouldEnqueuePluginStyles()) {
+            $style_path = HABIT_TRACKER_PATH . 'assets/css/frontend.css';
+            $style_version = is_readable($style_path)
+                ? (string) filemtime($style_path)
+                : HABIT_TRACKER_VERSION;
+
+            wp_enqueue_style(
+                'habit-tracker-frontend',
+                HABIT_TRACKER_URL . 'assets/css/frontend.css',
+                [],
+                $style_version
+            );
+        }
 
         wp_enqueue_script(
             'habit-tracker-frontend',
@@ -1071,5 +1164,109 @@ final class HabitsShortcode
     private function targetPerWeekOptions(): array
     {
         return HabitRules::targetPerWeekOptions();
+    }
+
+    private function buildStackTemplateContext(array $user_dashboard_habits, ?string $redirect_url = null): array
+    {
+        $resolved_redirect = is_string($redirect_url) && $redirect_url !== ''
+            ? $redirect_url
+            : $this->getCurrentUrl();
+        $items = [];
+
+        foreach ($user_dashboard_habits as $dashboard_habit) {
+            $stack_item_id = isset($dashboard_habit->id) ? (int) $dashboard_habit->id : 0;
+
+            $items[] = [
+                'id' => $stack_item_id,
+                'name' => (string) ($dashboard_habit->name ?? ''),
+                'category_class' => $this->resolveStackCategoryClass($dashboard_habit),
+            ];
+        }
+
+        return [
+            'items' => $items,
+            'redirect_url' => $resolved_redirect,
+            'remove_action' => self::REMOVE_USER_HABIT_ACTION,
+            'admin_post_url' => admin_url('admin-post.php'),
+        ];
+    }
+
+    private function buildSharedTemplateContext(
+        array $shared_habits,
+        array $active_shared_habit_ids,
+        string $redirect_url
+    ): array {
+        $categories = $this->categoryOptions();
+        $grouped_habits = $this->groupHabitsByPresetCategory($shared_habits);
+        $grouped_items = [];
+        $category_counts = [];
+
+        foreach ($categories as $category_key => $category_label) {
+            unset($category_label);
+            $grouped_items[$category_key] = [];
+            $category_habits = $grouped_habits[$category_key] ?? [];
+
+            foreach ($category_habits as $shared_habit) {
+                $shared_habit_id = isset($shared_habit->id) ? (int) $shared_habit->id : 0;
+
+                if ($shared_habit_id <= 0) {
+                    continue;
+                }
+
+                $grouped_items[$category_key][] = [
+                    'id' => $shared_habit_id,
+                    'name' => (string) ($shared_habit->name ?? ''),
+                    'description' => (string) ($shared_habit->description ?? ''),
+                    'is_added' => isset($active_shared_habit_ids[$shared_habit_id]),
+                    'default_target_per_week' => $this->resolveDefaultTargetPerWeek($shared_habit),
+                ];
+            }
+
+            $category_counts[$category_key] = count($grouped_items[$category_key]);
+        }
+
+        $target_options = [];
+
+        foreach ($this->targetPerWeekOptions() as $target_option) {
+            $target_options[] = [
+                'value' => (int) $target_option,
+                'label' => $this->formatTargetPerWeekLabel((int) $target_option),
+            ];
+        }
+
+        return [
+            'categories' => $categories,
+            'grouped_items' => $grouped_items,
+            'category_counts' => $category_counts,
+            'target_options' => $target_options,
+            'redirect_url' => $redirect_url,
+            'admin_post_url' => admin_url('admin-post.php'),
+            'add_shared_action' => self::ADD_SHARED_ACTION,
+            'add_custom_action' => self::ADD_CUSTOM_ACTION,
+            'custom_default_category' => HabitRules::CATEGORY_MIND,
+            'custom_default_target_per_week' => 7,
+        ];
+    }
+
+    private function buildCustomTemplateContext(string $redirect_url): array
+    {
+        $target_options = [];
+
+        foreach ($this->targetPerWeekOptions() as $target_option) {
+            $target_options[] = [
+                'value' => (int) $target_option,
+                'label' => $this->formatTargetPerWeekLabel((int) $target_option),
+            ];
+        }
+
+        return [
+            'categories' => $this->categoryOptions(),
+            'target_options' => $target_options,
+            'redirect_url' => $redirect_url,
+            'admin_post_url' => admin_url('admin-post.php'),
+            'add_custom_action' => self::ADD_CUSTOM_ACTION,
+            'custom_default_category' => HabitRules::CATEGORY_MIND,
+            'custom_default_target_per_week' => 7,
+        ];
     }
 }
