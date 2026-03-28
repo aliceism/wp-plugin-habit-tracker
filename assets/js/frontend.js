@@ -684,9 +684,20 @@
         return;
       }
 
+      if (event.defaultPrevented) {
+        return;
+      }
+
       const actionName = getFormActionName(target);
 
       if (!actionSet.has(actionName)) {
+        return;
+      }
+
+      const confirmMessage = (target.getAttribute("data-ht-confirm") || "").trim();
+
+      if (confirmMessage !== "" && !window.confirm(confirmMessage)) {
+        event.preventDefault();
         return;
       }
 

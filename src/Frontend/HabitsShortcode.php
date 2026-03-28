@@ -1175,10 +1175,20 @@ final class HabitsShortcode
 
         foreach ($user_dashboard_habits as $dashboard_habit) {
             $stack_item_id = isset($dashboard_habit->id) ? (int) $dashboard_habit->id : 0;
+            $frequency_type = HabitRules::normalizeFrequencyType(
+                (string) ($dashboard_habit->frequency_type ?? HabitRules::FREQUENCY_DAILY)
+            );
+            $target_count = HabitRules::normalizeTargetCount(
+                (int) ($dashboard_habit->target_count ?? HabitRules::DEFAULT_TARGET_COUNT)
+            );
+            $target_per_week = HabitRules::resolveDefaultTargetPerWeek($frequency_type, $target_count);
 
             $items[] = [
                 'id' => $stack_item_id,
                 'name' => (string) ($dashboard_habit->name ?? ''),
+                'description' => trim((string) ($dashboard_habit->description ?? '')),
+                'target_per_week' => $target_per_week,
+                'target_label' => $this->formatTargetPerWeekLabel($target_per_week),
                 'category_class' => $this->resolveStackCategoryClass($dashboard_habit),
             ];
         }
