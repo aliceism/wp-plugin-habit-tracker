@@ -938,11 +938,7 @@ final class HabitsShortcode
             'notice_html' => $notice_html,
             'stack_html' => $stack_html,
             'shared_html' => $shared_html,
-            'close_modals' => (
-                $notice === 'shared-added' ||
-                $notice === 'shared-already-added' ||
-                $notice === 'custom-added'
-            ),
+            'close_modals' => false,
         ];
 
         wp_send_json_success($payload);

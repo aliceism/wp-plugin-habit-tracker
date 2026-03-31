@@ -597,10 +597,15 @@
     }
   }
 
-  function applyHabitsMutationResponse(payload) {
+  function applyHabitsMutationResponse(payload, options = {}) {
     if (!payload || typeof payload !== "object") {
       return;
     }
+
+    const openModalId =
+      options && typeof options.openModalId === "string"
+        ? options.openModalId.trim()
+        : "";
 
     replaceHabitsFragment(HABITS_STACK_SELECTOR, payload.stack_html || "");
     replaceHabitsFragment(HABITS_SHARED_SELECTOR, payload.shared_html || "");
@@ -608,12 +613,26 @@
 
     if (payload.close_modals === true) {
       closeAllModals();
+      return;
+    }
+
+    if (openModalId !== "") {
+      const modalToRestore = getModalById(openModalId);
+
+      if (modalToRestore) {
+        openModal(modalToRestore);
+      }
     }
   }
 
   async function submitHabitsMutationForm(form) {
     const config = getHabitsConfig();
     const ajaxUrl = resolveAjaxUrl(config, form);
+    const parentModal = form.closest(`[${MODAL_ATTR}]`);
+    const openModalId =
+      parentModal instanceof HTMLElement
+        ? (parentModal.getAttribute(MODAL_ATTR) || "").trim()
+        : "";
 
     if (ajaxUrl === "") {
       form.submit();
@@ -652,14 +671,14 @@
         }
 
         if (responseData && typeof responseData === "object") {
-          applyHabitsMutationResponse(responseData);
+          applyHabitsMutationResponse(responseData, { openModalId });
           return;
         }
 
         throw new Error("habit-tracker-habits-ajax-failed");
       }
 
-      applyHabitsMutationResponse(responseData);
+      applyHabitsMutationResponse(responseData, { openModalId });
     } catch (error) {
       form.submit();
     } finally {
