@@ -267,7 +267,7 @@ final class DashboardAnalytics
                 $target_count,
                 $target_days_mask,
                 $tracking_start,
-                $today
+                $month_end
             );
             $progress_percent = $target_total > 0 ? (int) round(($completed / $target_total) * 100) : 0;
             $progress_percent = max(0, min(100, $progress_percent));

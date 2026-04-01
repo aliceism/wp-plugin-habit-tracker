@@ -180,10 +180,22 @@ final class HabitMath
                     continue;
                 }
 
-                $weeks[$date->format('o-W')] = true;
+                $week_key = $date->format('o-W');
+
+                if (! isset($weeks[$week_key])) {
+                    $weeks[$week_key] = 0;
+                }
+
+                $weeks[$week_key]++;
             }
 
-            return count($weeks) * $target_count;
+            $total = 0;
+
+            foreach ($weeks as $enabled_days_in_week) {
+                $total += min($target_count, (int) $enabled_days_in_week);
+            }
+
+            return $total;
         }
 
         $eligible_days = 0;

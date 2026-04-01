@@ -21,6 +21,7 @@ final class HabitMathTest
             'testWeeklyHabitStreakIncludesCurrentWeekWhenTargetIsReached',
             'testDailyTargetForPeriodWithWeekdayMask',
             'testWeeklyTargetForPeriodCountsDistinctEligibleWeeks',
+            'testWeeklyTargetForPeriodCapsByAvailableDaysInPartialWeeks',
             'testDateRangeIsStableAcrossDstChange',
             'testDateRangeReturnsEmptyOnInvalidRange',
         ];
@@ -163,6 +164,19 @@ final class HabitMathTest
         self::assertSame(6, $actual, 'Expected target count multiplied by distinct weeks in range.');
     }
 
+    private static function testWeeklyTargetForPeriodCapsByAvailableDaysInPartialWeeks(): void
+    {
+        $actual = HabitMath::calculateTargetForPeriod(
+            HabitMath::FREQUENCY_WEEKLY,
+            7,
+            127,
+            '2026-04-01',
+            '2026-04-30'
+        );
+
+        self::assertSame(30, $actual, 'Expected weekly target to be capped by available month days in partial weeks.');
+    }
+
     private static function testDateRangeIsStableAcrossDstChange(): void
     {
         $previous_timezone = date_default_timezone_get();
@@ -204,4 +218,3 @@ final class HabitMathTest
         );
     }
 }
-
