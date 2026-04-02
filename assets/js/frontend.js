@@ -10,6 +10,16 @@
   const PAGE_LOADING_CLASS = "habit-tracker-page-loading";
   const HABITS_STACK_SELECTOR = ".habit-tracker-block--stack";
   const HABITS_SHARED_SELECTOR = ".habit-tracker-block--shared";
+  const STACK_CONTROL_ATTR = "data-ht-stack-control";
+  const STACK_CONTROL_SEARCH = "search";
+  const STACK_CONTROL_CATEGORY = "category";
+  const STACK_CONTROL_SORT = "sort";
+  const STACK_SORT_DEFAULT = "default";
+  const STACK_SORT_NAME_ASC = "name-asc";
+  const STACK_SORT_NAME_DESC = "name-desc";
+  const STACK_SORT_CATEGORY = "category";
+  const STACK_EMPTY_MESSAGE_CLASS = "habit-tracker-stack-tools__empty";
+  const STACK_CATEGORY_ORDER = ["mind", "body", "productivity", "life", "custom"];
   const HABITS_ACTIONS_FALLBACK = new Set([
     "habit_tracker_add_shared_habit",
     "habit_tracker_add_custom_habit",
@@ -17,6 +27,12 @@
   ]);
 
   let isSpaNavigationInProgress = false;
+  let isStackControlEventsBound = false;
+  const habitsStackState = {
+    search: "",
+    category: "all",
+    sort: STACK_SORT_DEFAULT,
+  };
 
   function hasHabitsUi() {
     return Boolean(
@@ -149,6 +165,7 @@
     closeAllModals();
     markHabitsPageHeader();
     markDashboardPageHeader();
+    initHabitsStackControls();
 
     return true;
   }
@@ -524,6 +541,475 @@
     return HABITS_ACTIONS_FALLBACK;
   }
 
+  function getHabitsStackControlsConfig() {
+    const config = getHabitsConfig();
+
+    if (!config || typeof config !== "object") {
+      return null;
+    }
+
+    const stackControls = config.stackControls;
+
+    if (!stackControls || typeof stackControls !== "object") {
+      return null;
+    }
+
+    return stackControls;
+  }
+
+  function getHabitsStackControlLabels() {
+    const config = getHabitsStackControlsConfig();
+    const labels = {
+      searchPlaceholder: "Search habits...",
+      filterLabel: "Filter",
+      filterAll: "All categories",
+      sortLabel: "Sort",
+      sortDefault: "Default order",
+      sortNameAsc: "Name (A-Z)",
+      sortNameDesc: "Name (Z-A)",
+      sortCategory: "Category",
+      noResults: "No habits match your filters.",
+      categories: {
+        mind: "Mind",
+        body: "Body",
+        productivity: "Productivity",
+        life: "Life",
+        custom: "Custom",
+      },
+    };
+
+    if (!config) {
+      return labels;
+    }
+
+    const scalarKeys = [
+      "searchPlaceholder",
+      "filterLabel",
+      "filterAll",
+      "sortLabel",
+      "sortDefault",
+      "sortNameAsc",
+      "sortNameDesc",
+      "sortCategory",
+      "noResults",
+    ];
+
+    scalarKeys.forEach((key) => {
+      if (typeof config[key] === "string" && config[key].trim() !== "") {
+        labels[key] = config[key].trim();
+      }
+    });
+
+    if (config.categories && typeof config.categories === "object") {
+      STACK_CATEGORY_ORDER.forEach((categoryKey) => {
+        const categoryLabel = config.categories[categoryKey];
+
+        if (typeof categoryLabel === "string" && categoryLabel.trim() !== "") {
+          labels.categories[categoryKey] = categoryLabel.trim();
+        }
+      });
+    }
+
+    return labels;
+  }
+
+  function normalizeStackText(value) {
+    return String(value || "")
+      .trim()
+      .toLowerCase();
+  }
+
+  function getStackListItemCategory(item) {
+    if (!(item instanceof HTMLElement)) {
+      return "life";
+    }
+
+    for (const categoryKey of STACK_CATEGORY_ORDER) {
+      if (item.classList.contains(`habit-tracker-stack-item--${categoryKey}`)) {
+        return categoryKey;
+      }
+    }
+
+    return "life";
+  }
+
+  function getStackListItemName(item) {
+    if (!(item instanceof HTMLElement)) {
+      return "";
+    }
+
+    const nameNode = item.querySelector(".habit-tracker-stack-item__name");
+    const sourceText =
+      nameNode && typeof nameNode.textContent === "string"
+        ? nameNode.textContent
+        : item.textContent || "";
+
+    return normalizeStackText(sourceText);
+  }
+
+  function getStackListItemOriginalOrder(item, fallbackIndex) {
+    if (!(item instanceof HTMLElement)) {
+      return fallbackIndex;
+    }
+
+    if (typeof item.dataset.htOriginalIndex !== "string") {
+      item.dataset.htOriginalIndex = String(fallbackIndex);
+      return fallbackIndex;
+    }
+
+    const parsed = Number.parseInt(item.dataset.htOriginalIndex, 10);
+
+    if (Number.isNaN(parsed)) {
+      item.dataset.htOriginalIndex = String(fallbackIndex);
+      return fallbackIndex;
+    }
+
+    return parsed;
+  }
+
+  function compareStackItemsByCurrentSort(left, right) {
+    const sortMode = habitsStackState.sort;
+    const leftName = getStackListItemName(left);
+    const rightName = getStackListItemName(right);
+    const nameCompare = leftName.localeCompare(rightName, undefined, {
+      sensitivity: "base",
+      numeric: true,
+    });
+
+    if (sortMode === STACK_SORT_NAME_ASC) {
+      return nameCompare;
+    }
+
+    if (sortMode === STACK_SORT_NAME_DESC) {
+      return nameCompare * -1;
+    }
+
+    if (sortMode === STACK_SORT_CATEGORY) {
+      const leftCategoryIndex = STACK_CATEGORY_ORDER.indexOf(
+        getStackListItemCategory(left)
+      );
+      const rightCategoryIndex = STACK_CATEGORY_ORDER.indexOf(
+        getStackListItemCategory(right)
+      );
+      const normalizedLeftCategoryIndex =
+        leftCategoryIndex >= 0 ? leftCategoryIndex : STACK_CATEGORY_ORDER.length;
+      const normalizedRightCategoryIndex =
+        rightCategoryIndex >= 0 ? rightCategoryIndex : STACK_CATEGORY_ORDER.length;
+
+      if (normalizedLeftCategoryIndex !== normalizedRightCategoryIndex) {
+        return normalizedLeftCategoryIndex - normalizedRightCategoryIndex;
+      }
+
+      if (nameCompare !== 0) {
+        return nameCompare;
+      }
+    }
+
+    const leftIndex = getStackListItemOriginalOrder(left, 0);
+    const rightIndex = getStackListItemOriginalOrder(right, 0);
+
+    return leftIndex - rightIndex;
+  }
+
+  function getStackListItems(stackList) {
+    if (!(stackList instanceof HTMLElement)) {
+      return [];
+    }
+
+    return Array.from(stackList.children).filter(
+      (item) =>
+        item instanceof HTMLElement &&
+        item.classList.contains("habit-tracker-stack-item")
+    );
+  }
+
+  function resolveStackBlockFromTarget(target) {
+    if (!(target instanceof Element)) {
+      return null;
+    }
+
+    const closest = target.closest(HABITS_STACK_SELECTOR);
+
+    if (closest instanceof HTMLElement) {
+      return closest;
+    }
+
+    const fallback = document.querySelector(HABITS_STACK_SELECTOR);
+
+    return fallback instanceof HTMLElement ? fallback : null;
+  }
+
+  function syncStackControlValues(stackBlock) {
+    if (!(stackBlock instanceof HTMLElement)) {
+      return;
+    }
+
+    const searchInput = stackBlock.querySelector(
+      `[${STACK_CONTROL_ATTR}="${STACK_CONTROL_SEARCH}"]`
+    );
+    const categorySelect = stackBlock.querySelector(
+      `[${STACK_CONTROL_ATTR}="${STACK_CONTROL_CATEGORY}"]`
+    );
+    const sortSelect = stackBlock.querySelector(
+      `[${STACK_CONTROL_ATTR}="${STACK_CONTROL_SORT}"]`
+    );
+
+    if (searchInput instanceof HTMLInputElement) {
+      searchInput.value = habitsStackState.search;
+    }
+
+    if (categorySelect instanceof HTMLSelectElement) {
+      categorySelect.value = habitsStackState.category;
+    }
+
+    if (sortSelect instanceof HTMLSelectElement) {
+      sortSelect.value = habitsStackState.sort;
+    }
+  }
+
+  function ensureStackControlsMarkup(stackBlock) {
+    if (!(stackBlock instanceof HTMLElement)) {
+      return;
+    }
+
+    const stackList = stackBlock.querySelector(".habit-tracker-habits__stack");
+    const stackPanel = stackBlock.querySelector(".habit-tracker-stack-panel");
+    const controlsHost =
+      stackPanel instanceof HTMLElement ? stackPanel : stackBlock;
+
+    if (!(stackList instanceof HTMLElement)) {
+      const existingControls = stackBlock.querySelector(".habit-tracker-stack-tools");
+      const existingEmptyState = stackBlock.querySelector(`.${STACK_EMPTY_MESSAGE_CLASS}`);
+
+      if (existingControls) {
+        existingControls.remove();
+      }
+
+      if (existingEmptyState) {
+        existingEmptyState.remove();
+      }
+
+      return;
+    }
+
+    const existingControls = stackBlock.querySelector(".habit-tracker-stack-tools");
+
+    if (!(existingControls instanceof HTMLElement)) {
+      const labels = getHabitsStackControlLabels();
+      const controls = document.createElement("div");
+      controls.className = "habit-tracker-stack-tools";
+      const search = document.createElement("input");
+      search.type = "search";
+      search.className = "habit-tracker-stack-tools__search";
+      search.setAttribute(STACK_CONTROL_ATTR, STACK_CONTROL_SEARCH);
+      search.placeholder = labels.searchPlaceholder;
+      search.setAttribute("aria-label", labels.searchPlaceholder);
+
+      const category = document.createElement("select");
+      category.className = "habit-tracker-stack-tools__category";
+      category.setAttribute(STACK_CONTROL_ATTR, STACK_CONTROL_CATEGORY);
+      category.setAttribute("aria-label", labels.filterLabel);
+
+      const allCategoryOption = document.createElement("option");
+      allCategoryOption.value = "all";
+      allCategoryOption.textContent = labels.filterAll;
+      category.appendChild(allCategoryOption);
+
+      STACK_CATEGORY_ORDER.forEach((categoryKey) => {
+        const option = document.createElement("option");
+        option.value = categoryKey;
+        option.textContent = labels.categories[categoryKey] || categoryKey;
+        category.appendChild(option);
+      });
+
+      const sort = document.createElement("select");
+      sort.className = "habit-tracker-stack-tools__sort";
+      sort.setAttribute(STACK_CONTROL_ATTR, STACK_CONTROL_SORT);
+      sort.setAttribute("aria-label", labels.sortLabel);
+
+      [
+        [STACK_SORT_DEFAULT, labels.sortDefault],
+        [STACK_SORT_NAME_ASC, labels.sortNameAsc],
+        [STACK_SORT_NAME_DESC, labels.sortNameDesc],
+        [STACK_SORT_CATEGORY, labels.sortCategory],
+      ].forEach(([value, label]) => {
+        const option = document.createElement("option");
+        option.value = value;
+        option.textContent = label;
+        sort.appendChild(option);
+      });
+
+      controls.appendChild(search);
+      controls.appendChild(category);
+      controls.appendChild(sort);
+
+      controlsHost.insertBefore(controls, stackList);
+    } else if (existingControls.parentElement !== controlsHost) {
+      controlsHost.insertBefore(existingControls, stackList);
+    }
+
+    const existingEmptyState = stackBlock.querySelector(`.${STACK_EMPTY_MESSAGE_CLASS}`);
+
+    if (!(existingEmptyState instanceof HTMLElement)) {
+      const emptyState = document.createElement("p");
+      emptyState.className = STACK_EMPTY_MESSAGE_CLASS;
+      emptyState.hidden = true;
+      stackList.insertAdjacentElement("afterend", emptyState);
+    } else if (existingEmptyState.previousElementSibling !== stackList) {
+      stackList.insertAdjacentElement("afterend", existingEmptyState);
+    }
+
+    syncStackControlValues(stackBlock);
+  }
+
+  function applyStackControls(stackBlock) {
+    if (!(stackBlock instanceof HTMLElement)) {
+      return;
+    }
+
+    const stackList = stackBlock.querySelector(".habit-tracker-habits__stack");
+    const emptyMessage = stackBlock.querySelector(`.${STACK_EMPTY_MESSAGE_CLASS}`);
+
+    if (!(stackList instanceof HTMLElement)) {
+      if (emptyMessage instanceof HTMLElement) {
+        emptyMessage.hidden = true;
+      }
+      return;
+    }
+
+    const items = getStackListItems(stackList);
+
+    items.forEach((item, index) => {
+      getStackListItemOriginalOrder(item, index);
+    });
+
+    const sortedItems = [...items].sort(compareStackItemsByCurrentSort);
+    sortedItems.forEach((item) => {
+      stackList.appendChild(item);
+    });
+
+    const searchNeedle = normalizeStackText(habitsStackState.search);
+    const selectedCategory = normalizeStackText(habitsStackState.category);
+    let visibleCount = 0;
+
+    sortedItems.forEach((item) => {
+      const itemCategory = getStackListItemCategory(item);
+      const itemName = getStackListItemName(item);
+      const matchesCategory =
+        selectedCategory === "" ||
+        selectedCategory === "all" ||
+        itemCategory === selectedCategory;
+      const matchesSearch =
+        searchNeedle === "" || itemName.includes(searchNeedle);
+      const isVisible = matchesCategory && matchesSearch;
+
+      item.hidden = !isVisible;
+      item.style.display = isVisible ? "" : "none";
+
+      if (isVisible) {
+        visibleCount += 1;
+      }
+    });
+
+    if (!(emptyMessage instanceof HTMLElement)) {
+      return;
+    }
+
+    if (items.length > 0 && visibleCount === 0) {
+      const labels = getHabitsStackControlLabels();
+      emptyMessage.textContent = labels.noResults;
+      emptyMessage.hidden = false;
+    } else {
+      emptyMessage.hidden = true;
+    }
+  }
+
+  function initHabitsStackControls() {
+    const stackBlock = document.querySelector(HABITS_STACK_SELECTOR);
+
+    if (!(stackBlock instanceof HTMLElement)) {
+      return;
+    }
+
+    ensureStackControlsMarkup(stackBlock);
+    applyStackControls(stackBlock);
+  }
+
+  function initHabitsStackControlEvents() {
+    if (isStackControlEventsBound) {
+      return;
+    }
+
+    isStackControlEventsBound = true;
+
+    document.addEventListener("input", (event) => {
+      const target = event.target;
+
+      if (
+        !(target instanceof HTMLInputElement) ||
+        target.getAttribute(STACK_CONTROL_ATTR) !== STACK_CONTROL_SEARCH
+      ) {
+        return;
+      }
+
+      const stackBlock = resolveStackBlockFromTarget(target);
+
+      if (!(stackBlock instanceof HTMLElement)) {
+        return;
+      }
+
+      habitsStackState.search = target.value || "";
+      applyStackControls(stackBlock);
+    });
+
+    document.addEventListener("search", (event) => {
+      const target = event.target;
+
+      if (
+        !(target instanceof HTMLInputElement) ||
+        target.getAttribute(STACK_CONTROL_ATTR) !== STACK_CONTROL_SEARCH
+      ) {
+        return;
+      }
+
+      const stackBlock = resolveStackBlockFromTarget(target);
+
+      if (!(stackBlock instanceof HTMLElement)) {
+        return;
+      }
+
+      habitsStackState.search = target.value || "";
+      applyStackControls(stackBlock);
+    });
+
+    document.addEventListener("change", (event) => {
+      const target = event.target;
+
+      if (!(target instanceof HTMLSelectElement)) {
+        return;
+      }
+
+      const stackBlock = resolveStackBlockFromTarget(target);
+
+      if (!(stackBlock instanceof HTMLElement)) {
+        return;
+      }
+
+      const controlType = target.getAttribute(STACK_CONTROL_ATTR);
+
+      if (controlType === STACK_CONTROL_CATEGORY) {
+        habitsStackState.category = target.value || "all";
+        applyStackControls(stackBlock);
+        return;
+      }
+
+      if (controlType === STACK_CONTROL_SORT) {
+        habitsStackState.sort = target.value || STACK_SORT_DEFAULT;
+        applyStackControls(stackBlock);
+      }
+    });
+  }
+
   function getFormActionName(form) {
     if (!(form instanceof HTMLFormElement)) {
       return "";
@@ -610,6 +1096,7 @@
     replaceHabitsFragment(HABITS_STACK_SELECTOR, payload.stack_html || "");
     replaceHabitsFragment(HABITS_SHARED_SELECTOR, payload.shared_html || "");
     upsertHabitsNotice(payload);
+    initHabitsStackControls();
 
     if (payload.close_modals === true) {
       closeAllModals();
@@ -769,6 +1256,8 @@
   initAppNavigation();
   initDashboardCheckinAjax();
   initHabitsMutationsAjax();
+  initHabitsStackControlEvents();
+  initHabitsStackControls();
 
   document.addEventListener("click", (event) => {
     const openTrigger = event.target.closest(`[${OPEN_ATTR}]`);

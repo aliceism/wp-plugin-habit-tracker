@@ -982,6 +982,23 @@ final class HabitsShortcode
                 'addSharedAction' => self::ADD_SHARED_ACTION,
                 'addCustomAction' => self::ADD_CUSTOM_ACTION,
                 'removeAction' => self::REMOVE_USER_HABIT_ACTION,
+                'stackControls' => [
+                    'searchPlaceholder' => __('Search habits...', 'habit-tracker'),
+                    'filterLabel' => __('Filter', 'habit-tracker'),
+                    'filterAll' => __('All categories', 'habit-tracker'),
+                    'sortLabel' => __('Sort', 'habit-tracker'),
+                    'sortDefault' => __('Default order', 'habit-tracker'),
+                    'sortNameAsc' => __('Name (A-Z)', 'habit-tracker'),
+                    'sortNameDesc' => __('Name (Z-A)', 'habit-tracker'),
+                    'sortCategory' => __('Category', 'habit-tracker'),
+                    'noResults' => __('No habits match your filters.', 'habit-tracker'),
+                    'categories' => array_merge(
+                        $this->categoryOptions(),
+                        [
+                            HabitRules::CATEGORY_CUSTOM => __('Custom', 'habit-tracker'),
+                        ]
+                    ),
+                ],
             ]
         );
     }
@@ -1130,7 +1147,20 @@ final class HabitsShortcode
             $grouped[$category_key][] = $shared_habit;
         }
 
+        foreach ($grouped as &$category_habits) {
+            usort($category_habits, [$this, 'compareHabitsByName']);
+        }
+        unset($category_habits);
+
         return $grouped;
+    }
+
+    private function compareHabitsByName($left, $right): int
+    {
+        $left_name = trim((string) (is_object($left) ? ($left->name ?? '') : ''));
+        $right_name = trim((string) (is_object($right) ? ($right->name ?? '') : ''));
+
+        return strnatcasecmp($left_name, $right_name);
     }
 
     private function resolveDefaultTargetPerWeek(object $shared_habit): int
