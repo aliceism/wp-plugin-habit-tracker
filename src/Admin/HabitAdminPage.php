@@ -54,6 +54,9 @@ final class HabitAdminPage
 
         $editing_habit = $this->getEditingHabit();
         $habit_rows = $this->habits->findAllForAdmin();
+        $list_filters = $this->getListFiltersFromRequest();
+        $filtered_habit_rows = $this->filterHabitRows($habit_rows, $list_filters);
+        $list_filter_query_args = $this->buildListFilterQueryArgs($list_filters);
         $assignment_counts = $this->habits->getAssignmentCounts();
         $form_values = $this->getFormValues($editing_habit);
         $is_editing = $editing_habit !== null;
@@ -219,8 +222,87 @@ final class HabitAdminPage
 
             <h2 style="margin-top: 32px;"><?php esc_html_e('Shared Habits', 'habit-tracker'); ?></h2>
 
+            <form method="get" action="<?php echo esc_url(admin_url('admin.php')); ?>" style="margin: 12px 0 16px; display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px;">
+                <input type="hidden" name="page" value="<?php echo esc_attr(self::PAGE_SLUG); ?>">
+
+                <div>
+                    <label for="habit-admin-search"><strong><?php esc_html_e('Search', 'habit-tracker'); ?></strong></label><br>
+                    <input
+                        id="habit-admin-search"
+                        type="search"
+                        name="search"
+                        value="<?php echo esc_attr($list_filters['search']); ?>"
+                        placeholder="<?php esc_attr_e('Name, slug, description...', 'habit-tracker'); ?>"
+                        class="regular-text"
+                    >
+                </div>
+
+                <div>
+                    <label for="habit-admin-filter-category"><strong><?php esc_html_e('Category', 'habit-tracker'); ?></strong></label><br>
+                    <select id="habit-admin-filter-category" name="filter_category">
+                        <option value="all" <?php selected($list_filters['category'], 'all'); ?>>
+                            <?php esc_html_e('All categories', 'habit-tracker'); ?>
+                        </option>
+                        <?php foreach ($this->categoryOptions() as $category_key => $category_label) : ?>
+                            <option value="<?php echo esc_attr($category_key); ?>" <?php selected($list_filters['category'], $category_key); ?>>
+                                <?php echo esc_html($category_label); ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+
+                <div>
+                    <label for="habit-admin-filter-status"><strong><?php esc_html_e('Status', 'habit-tracker'); ?></strong></label><br>
+                    <select id="habit-admin-filter-status" name="filter_status">
+                        <option value="all" <?php selected($list_filters['status'], 'all'); ?>>
+                            <?php esc_html_e('All statuses', 'habit-tracker'); ?>
+                        </option>
+                        <option value="active" <?php selected($list_filters['status'], 'active'); ?>>
+                            <?php esc_html_e('Active', 'habit-tracker'); ?>
+                        </option>
+                        <option value="inactive" <?php selected($list_filters['status'], 'inactive'); ?>>
+                            <?php esc_html_e('Inactive', 'habit-tracker'); ?>
+                        </option>
+                    </select>
+                </div>
+
+                <div>
+                    <label for="habit-admin-sort"><strong><?php esc_html_e('Sort By', 'habit-tracker'); ?></strong></label><br>
+                    <select id="habit-admin-sort" name="sort">
+                        <?php foreach ($this->sortOptions() as $sort_key => $sort_label) : ?>
+                            <option value="<?php echo esc_attr($sort_key); ?>" <?php selected($list_filters['sort'], $sort_key); ?>>
+                                <?php echo esc_html($sort_label); ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+
+                <?php submit_button(__('Apply', 'habit-tracker'), 'secondary', '', false); ?>
+
+                <a class="button" href="<?php echo esc_url($this->getPageUrl()); ?>">
+                    <?php esc_html_e('Reset', 'habit-tracker'); ?>
+                </a>
+            </form>
+
+            <p class="description" style="margin-top: 0;">
+                <?php
+                printf(
+                    esc_html__('Showing %1$d of %2$d habits.', 'habit-tracker'),
+                    count($filtered_habit_rows),
+                    count($habit_rows)
+                );
+                ?>
+            </p>
+
             <?php if ($habit_rows === []) : ?>
                 <p><?php esc_html_e('No shared habits have been created yet.', 'habit-tracker'); ?></p>
+            <?php elseif ($filtered_habit_rows === []) : ?>
+                <p>
+                    <?php esc_html_e('No habits match the selected filters.', 'habit-tracker'); ?>
+                    <a href="<?php echo esc_url($this->getPageUrl()); ?>">
+                        <?php esc_html_e('Clear filters', 'habit-tracker'); ?>
+                    </a>
+                </p>
             <?php else : ?>
                 <table class="widefat striped">
                     <thead>
@@ -236,7 +318,7 @@ final class HabitAdminPage
                     </tr>
                     </thead>
                     <tbody>
-                    <?php foreach ($habit_rows as $habit_row) : ?>
+                    <?php foreach ($filtered_habit_rows as $habit_row) : ?>
                         <?php $assignment_count = $assignment_counts[(int) $habit_row->id] ?? 0; ?>
                         <tr>
                             <td>
@@ -254,7 +336,7 @@ final class HabitAdminPage
                             <td>
                                 <a
                                     class="button button-secondary"
-                                    href="<?php echo esc_url($this->getPageUrl(['action' => 'edit', 'habit_id' => (int) $habit_row->id])); ?>"
+                                    href="<?php echo esc_url($this->getPageUrl(array_merge(['action' => 'edit', 'habit_id' => (int) $habit_row->id], $list_filter_query_args))); ?>"
                                 >
                                     <?php esc_html_e('Edit', 'habit-tracker'); ?>
                                 </a>
@@ -263,6 +345,7 @@ final class HabitAdminPage
                                     <input type="hidden" name="action" value="<?php echo esc_attr(self::TOGGLE_ACTION); ?>">
                                     <input type="hidden" name="habit_id" value="<?php echo esc_attr((string) $habit_row->id); ?>">
                                     <input type="hidden" name="is_active" value="<?php echo esc_attr(((int) $habit_row->is_active === 1) ? '0' : '1'); ?>">
+                                    <?php $this->renderListFilterHiddenFields($list_filters); ?>
                                     <?php wp_nonce_field(self::TOGGLE_ACTION); ?>
                                     <button type="submit" class="button">
                                         <?php echo esc_html(((int) $habit_row->is_active === 1) ? __('Deactivate', 'habit-tracker') : __('Activate', 'habit-tracker')); ?>
@@ -272,6 +355,7 @@ final class HabitAdminPage
                                 <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" style="display:inline-block; margin: 0;">
                                     <input type="hidden" name="action" value="<?php echo esc_attr(self::DELETE_ACTION); ?>">
                                     <input type="hidden" name="habit_id" value="<?php echo esc_attr((string) $habit_row->id); ?>">
+                                    <?php $this->renderListFilterHiddenFields($list_filters); ?>
                                     <?php wp_nonce_field(self::DELETE_ACTION); ?>
                                     <button
                                         type="submit"
@@ -472,7 +556,10 @@ final class HabitAdminPage
 
         $updated = $this->habits->setActive($habit_id, $is_active);
 
-        $this->redirect($updated ? 'habit-status-updated' : 'habit-save-failed');
+        $this->redirect(
+            $updated ? 'habit-status-updated' : 'habit-save-failed',
+            $this->getListFilterArgsFromPost()
+        );
     }
 
     public function handleDelete(): void
@@ -492,7 +579,10 @@ final class HabitAdminPage
 
         $deleted = $this->habits->delete($habit_id);
 
-        $this->redirect($deleted ? 'habit-deleted' : 'habit-delete-failed');
+        $this->redirect(
+            $deleted ? 'habit-deleted' : 'habit-delete-failed',
+            $this->getListFilterArgsFromPost()
+        );
     }
 
     private function assertManageOptions(): void
@@ -713,5 +803,229 @@ final class HabitAdminPage
         }
 
         return $max_sort_order + 1;
+    }
+
+    private function getListFiltersFromRequest(): array
+    {
+        return $this->normalizeListFilters([
+            'search' => isset($_GET['search']) ? (string) wp_unslash($_GET['search']) : '',
+            'category' => isset($_GET['filter_category']) ? (string) wp_unslash($_GET['filter_category']) : 'all',
+            'status' => isset($_GET['filter_status']) ? (string) wp_unslash($_GET['filter_status']) : 'all',
+            'sort' => isset($_GET['sort']) ? (string) wp_unslash($_GET['sort']) : 'default',
+        ]);
+    }
+
+    private function getListFilterArgsFromPost(): array
+    {
+        $filters = $this->normalizeListFilters([
+            'search' => isset($_POST['search']) ? (string) wp_unslash($_POST['search']) : '',
+            'category' => isset($_POST['filter_category']) ? (string) wp_unslash($_POST['filter_category']) : 'all',
+            'status' => isset($_POST['filter_status']) ? (string) wp_unslash($_POST['filter_status']) : 'all',
+            'sort' => isset($_POST['sort']) ? (string) wp_unslash($_POST['sort']) : 'default',
+        ]);
+
+        return $this->buildListFilterQueryArgs($filters);
+    }
+
+    private function normalizeListFilters(array $filters): array
+    {
+        $search = sanitize_text_field((string) ($filters['search'] ?? ''));
+        $search = trim($search);
+
+        $category = sanitize_key((string) ($filters['category'] ?? 'all'));
+
+        if ($category !== 'all') {
+            $category = $this->normalizeCategoryKey($category);
+        }
+
+        $status = sanitize_key((string) ($filters['status'] ?? 'all'));
+
+        if (! in_array($status, ['all', 'active', 'inactive'], true)) {
+            $status = 'all';
+        }
+
+        $sort = sanitize_key((string) ($filters['sort'] ?? 'default'));
+
+        if (! isset($this->sortOptions()[$sort])) {
+            $sort = 'default';
+        }
+
+        return [
+            'search' => $search,
+            'category' => $category,
+            'status' => $status,
+            'sort' => $sort,
+        ];
+    }
+
+    private function buildListFilterQueryArgs(array $filters): array
+    {
+        $args = [];
+        $search = trim((string) ($filters['search'] ?? ''));
+        $category = (string) ($filters['category'] ?? 'all');
+        $status = (string) ($filters['status'] ?? 'all');
+        $sort = (string) ($filters['sort'] ?? 'default');
+
+        if ($search !== '') {
+            $args['search'] = $search;
+        }
+
+        if ($category !== 'all') {
+            $args['filter_category'] = $category;
+        }
+
+        if ($status !== 'all') {
+            $args['filter_status'] = $status;
+        }
+
+        if ($sort !== 'default') {
+            $args['sort'] = $sort;
+        }
+
+        return $args;
+    }
+
+    private function renderListFilterHiddenFields(array $filters): void
+    {
+        $args = $this->buildListFilterQueryArgs($filters);
+
+        foreach ($args as $key => $value) {
+            printf(
+                '<input type="hidden" name="%1$s" value="%2$s">',
+                esc_attr((string) $key),
+                esc_attr((string) $value)
+            );
+        }
+    }
+
+    private function filterHabitRows(array $habit_rows, array $filters): array
+    {
+        $filtered = [];
+        $search = (string) ($filters['search'] ?? '');
+        $selected_category = (string) ($filters['category'] ?? 'all');
+        $selected_status = (string) ($filters['status'] ?? 'all');
+        $sort = (string) ($filters['sort'] ?? 'default');
+
+        foreach ($habit_rows as $habit_row) {
+            if (! is_object($habit_row)) {
+                continue;
+            }
+
+            $row_category = $this->normalizeCategoryKey((string) ($habit_row->category ?? ''));
+            $row_status = ((int) ($habit_row->is_active ?? 0) === 1) ? 'active' : 'inactive';
+
+            if ($selected_category !== 'all' && $row_category !== $selected_category) {
+                continue;
+            }
+
+            if ($selected_status !== 'all' && $row_status !== $selected_status) {
+                continue;
+            }
+
+            if (! $this->habitMatchesSearch($habit_row, $search)) {
+                continue;
+            }
+
+            $filtered[] = $habit_row;
+        }
+
+        return $this->sortFilteredHabitRows($filtered, $sort);
+    }
+
+    private function habitMatchesSearch(object $habit_row, string $search): bool
+    {
+        if ($search === '') {
+            return true;
+        }
+
+        $haystacks = [
+            (string) ($habit_row->name ?? ''),
+            (string) ($habit_row->slug ?? ''),
+            (string) ($habit_row->description ?? ''),
+            $this->resolveCategoryLabel((string) ($habit_row->category ?? '')),
+        ];
+
+        foreach ($haystacks as $haystack) {
+            if ($this->containsCaseInsensitive($haystack, $search)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function containsCaseInsensitive(string $haystack, string $needle): bool
+    {
+        if ($needle === '') {
+            return true;
+        }
+
+        if (function_exists('mb_stripos')) {
+            return mb_stripos($haystack, $needle, 0, 'UTF-8') !== false;
+        }
+
+        return stripos($haystack, $needle) !== false;
+    }
+
+    private function sortOptions(): array
+    {
+        return [
+            'default' => __('Default Order', 'habit-tracker'),
+            'name_asc' => __('Name (A-Z)', 'habit-tracker'),
+            'name_desc' => __('Name (Z-A)', 'habit-tracker'),
+            'updated_desc' => __('Recently Updated', 'habit-tracker'),
+            'updated_asc' => __('Oldest Updated', 'habit-tracker'),
+        ];
+    }
+
+    private function sortFilteredHabitRows(array $rows, string $sort): array
+    {
+        if ($rows === [] || $sort === '' || $sort === 'default') {
+            return $rows;
+        }
+
+        usort($rows, function (object $left, object $right) use ($sort): int {
+            $left_name = (string) ($left->name ?? '');
+            $right_name = (string) ($right->name ?? '');
+            $left_sort_order = (int) ($left->sort_order ?? 0);
+            $right_sort_order = (int) ($right->sort_order ?? 0);
+            $left_updated = $this->parseUpdatedTimestamp((string) ($left->updated_at ?? ''));
+            $right_updated = $this->parseUpdatedTimestamp((string) ($right->updated_at ?? ''));
+
+            if ($sort === 'name_asc') {
+                $comparison = strnatcasecmp($left_name, $right_name);
+                return $comparison !== 0 ? $comparison : ($left_sort_order <=> $right_sort_order);
+            }
+
+            if ($sort === 'name_desc') {
+                $comparison = strnatcasecmp($right_name, $left_name);
+                return $comparison !== 0 ? $comparison : ($left_sort_order <=> $right_sort_order);
+            }
+
+            if ($sort === 'updated_desc') {
+                $comparison = $right_updated <=> $left_updated;
+                return $comparison !== 0 ? $comparison : strnatcasecmp($left_name, $right_name);
+            }
+
+            if ($sort === 'updated_asc') {
+                $comparison = $left_updated <=> $right_updated;
+                return $comparison !== 0 ? $comparison : strnatcasecmp($left_name, $right_name);
+            }
+
+            return 0;
+        });
+
+        return $rows;
+    }
+
+    private function parseUpdatedTimestamp(string $date_time): int
+    {
+        $timestamp = strtotime($date_time);
+
+        if (! is_int($timestamp)) {
+            return 0;
+        }
+
+        return $timestamp;
     }
 }
