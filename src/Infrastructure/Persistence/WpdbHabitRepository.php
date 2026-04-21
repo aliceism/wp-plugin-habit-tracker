@@ -39,6 +39,29 @@ final class WpdbHabitRepository
         return is_array($results) ? $results : [];
     }
 
+    public function findForAdminList(array $filters = []): array
+    {
+        $args = [];
+        $where_sql = $this->buildAdminWhereClause($filters, $args);
+        $order_by_sql = $this->resolveAdminOrderBy((string) ($filters['sort'] ?? 'default'));
+        $sql = "SELECT * FROM {$this->habits_table}{$where_sql} ORDER BY {$order_by_sql}";
+
+        if ($args !== []) {
+            $sql = $this->wpdb->prepare($sql, $args);
+        }
+
+        $results = $this->wpdb->get_results($sql);
+
+        return is_array($results) ? $results : [];
+    }
+
+    public function countAllForAdmin(): int
+    {
+        $sql = "SELECT COUNT(*) FROM {$this->habits_table}";
+
+        return (int) $this->wpdb->get_var($sql);
+    }
+
     public function findActiveForFrontend(): array
     {
         $sql = "SELECT * FROM {$this->habits_table} WHERE is_active = 1 ORDER BY sort_order ASC, name ASC";
@@ -255,5 +278,62 @@ final class WpdbHabitRepository
     private function normalizeCategoryKey(string $category): string
     {
         return HabitRules::normalizeCategoryKey($category);
+    }
+
+    private function buildAdminWhereClause(array $filters, array &$args): string
+    {
+        $conditions = [];
+        $search = trim((string) ($filters['search'] ?? ''));
+        $category = sanitize_key((string) ($filters['category'] ?? 'all'));
+        $status = sanitize_key((string) ($filters['status'] ?? 'all'));
+
+        if ($search !== '') {
+            $pattern = '%' . $this->wpdb->esc_like($search) . '%';
+            $conditions[] = '(name LIKE %s OR slug LIKE %s OR description LIKE %s OR category LIKE %s)';
+            $args[] = $pattern;
+            $args[] = $pattern;
+            $args[] = $pattern;
+            $args[] = $pattern;
+        }
+
+        if ($category !== '' && $category !== 'all') {
+            $conditions[] = 'category = %s';
+            $args[] = $this->normalizeCategoryKey($category);
+        }
+
+        if ($status === 'active') {
+            $conditions[] = 'is_active = %d';
+            $args[] = 1;
+        } elseif ($status === 'inactive') {
+            $conditions[] = 'is_active = %d';
+            $args[] = 0;
+        }
+
+        if ($conditions === []) {
+            return '';
+        }
+
+        return ' WHERE ' . implode(' AND ', $conditions);
+    }
+
+    private function resolveAdminOrderBy(string $sort): string
+    {
+        if ($sort === 'name_asc') {
+            return 'name ASC, sort_order ASC, id ASC';
+        }
+
+        if ($sort === 'name_desc') {
+            return 'name DESC, sort_order ASC, id ASC';
+        }
+
+        if ($sort === 'updated_desc') {
+            return 'updated_at DESC, name ASC, id ASC';
+        }
+
+        if ($sort === 'updated_asc') {
+            return 'updated_at ASC, name ASC, id ASC';
+        }
+
+        return 'is_active DESC, sort_order ASC, name ASC, id ASC';
     }
 }

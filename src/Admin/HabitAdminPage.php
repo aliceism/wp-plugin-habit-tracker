@@ -53,9 +53,9 @@ final class HabitAdminPage
         }
 
         $editing_habit = $this->getEditingHabit();
-        $habit_rows = $this->habits->findAllForAdmin();
         $list_filters = $this->getListFiltersFromRequest();
-        $filtered_habit_rows = $this->filterHabitRows($habit_rows, $list_filters);
+        $total_habit_count = $this->habits->countAllForAdmin();
+        $filtered_habit_rows = $this->habits->findForAdminList($list_filters);
         $list_filter_query_args = $this->buildListFilterQueryArgs($list_filters);
         $assignment_counts = $this->habits->getAssignmentCounts();
         $form_values = $this->getFormValues($editing_habit);
@@ -289,12 +289,12 @@ final class HabitAdminPage
                 printf(
                     esc_html__('Showing %1$d of %2$d habits.', 'habit-tracker'),
                     count($filtered_habit_rows),
-                    count($habit_rows)
+                    $total_habit_count
                 );
                 ?>
             </p>
 
-            <?php if ($habit_rows === []) : ?>
+            <?php if ($total_habit_count <= 0) : ?>
                 <p><?php esc_html_e('No shared habits have been created yet.', 'habit-tracker'); ?></p>
             <?php elseif ($filtered_habit_rows === []) : ?>
                 <p>
