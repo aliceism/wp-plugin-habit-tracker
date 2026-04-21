@@ -29,6 +29,34 @@ if (! defined('HABIT_TRACKER_VERSION')) {
     define('HABIT_TRACKER_VERSION', '0.1.0');
 }
 
+if (! function_exists('str_starts_with')) {
+    function str_starts_with(string $haystack, string $needle): bool
+    {
+        if ($needle === '') {
+            return true;
+        }
+
+        return substr($haystack, 0, strlen($needle)) === $needle;
+    }
+}
+
+if (! function_exists('str_ends_with')) {
+    function str_ends_with(string $haystack, string $needle): bool
+    {
+        if ($needle === '') {
+            return true;
+        }
+
+        $needle_length = strlen($needle);
+
+        if ($needle_length > strlen($haystack)) {
+            return false;
+        }
+
+        return substr($haystack, -$needle_length) === $needle;
+    }
+}
+
 require_once HABIT_TRACKER_PATH . 'src/Support/Autoloader.php';
 
 \HabitTracker\Support\Autoloader::register();

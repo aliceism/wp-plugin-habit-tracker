@@ -60,6 +60,16 @@ final class AuthShortcode
         }
 
         $notice = $this->renderNotice();
+
+        if (! $this->isUserRegistrationEnabled()) {
+            return $notice . sprintf(
+                '<div class="auth-state"><p>%s</p><a class="btn btn-primary" href="%s">%s</a></div>',
+                esc_html__('Registration is currently disabled. Use login if you already have an account.', 'habit-tracker'),
+                esc_url($this->getLoginUrl()),
+                esc_html__('Go to Login', 'habit-tracker')
+            );
+        }
+
         $action = admin_url('admin-post.php');
         $redirect = $this->getDashboardUrl();
 
@@ -96,6 +106,10 @@ final class AuthShortcode
         if (is_user_logged_in()) {
             wp_safe_redirect($this->getDashboardUrl());
             exit;
+        }
+
+        if (! $this->isUserRegistrationEnabled()) {
+            $this->redirectRegisterError('registration-disabled');
         }
 
         $nonce = sanitize_text_field(wp_unslash($_POST['_wpnonce'] ?? ''));
@@ -187,6 +201,7 @@ final class AuthShortcode
 
         $messages = [
             'invalid-request' => __('Invalid request. Please submit the form again.', 'habit-tracker'),
+            'registration-disabled' => __('Registration is currently disabled.', 'habit-tracker'),
             'email-invalid' => __('A valid email is required.', 'habit-tracker'),
             'password-required' => __('Password is required.', 'habit-tracker'),
             'password-short' => __('Password must be at least 8 characters.', 'habit-tracker'),
@@ -212,6 +227,11 @@ final class AuthShortcode
 
         wp_safe_redirect($target);
         exit;
+    }
+
+    private function isUserRegistrationEnabled(): bool
+    {
+        return (bool) get_option('users_can_register');
     }
 
     private function generateUniqueUsernameFromEmail(string $user_email): string
