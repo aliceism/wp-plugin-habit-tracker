@@ -884,14 +884,7 @@ final class HabitAdminPage
 
     private function getNextSortOrderBase(): int
     {
-        $habits = $this->habits->findAllForAdmin();
-        $max_sort_order = 0;
-
-        foreach ($habits as $habit) {
-            $max_sort_order = max($max_sort_order, (int) ($habit->sort_order ?? 0));
-        }
-
-        return $max_sort_order + 1;
+        return $this->habits->getMaxSortOrderForAdmin() + 1;
     }
 
     private function truncateImportText(string $value, int $max_length): string

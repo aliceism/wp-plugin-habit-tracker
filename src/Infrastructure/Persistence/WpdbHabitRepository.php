@@ -66,6 +66,14 @@ final class WpdbHabitRepository
         return (int) $this->wpdb->get_var($sql);
     }
 
+    public function getMaxSortOrderForAdmin(): int
+    {
+        $sql = "SELECT MAX(sort_order) FROM {$this->habits_table}";
+        $max_sort_order = (int) $this->wpdb->get_var($sql);
+
+        return max(0, $max_sort_order);
+    }
+
     public function findActiveForFrontend(): array
     {
         $sql = "SELECT * FROM {$this->habits_table} WHERE is_active = 1 ORDER BY sort_order ASC, name ASC";
