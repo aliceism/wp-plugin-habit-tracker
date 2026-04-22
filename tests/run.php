@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/bootstrap.php';
 require_once __DIR__ . '/Unit/HabitMathTest.php';
+require_once __DIR__ . '/Unit/CurrentUrlResolverTest.php';
 
 $suites = [
     \HabitTracker\Tests\Unit\HabitMathTest::class,
+    \HabitTracker\Tests\Unit\CurrentUrlResolverTest::class,
 ];
 
 $total = 0;
