@@ -16,6 +16,12 @@ final class HabitAdminPage
     private const IMPORT_ACTION = 'habit_tracker_import_habits';
     private const TOGGLE_ACTION = 'habit_tracker_toggle_habit';
     private const DELETE_ACTION = 'habit_tracker_delete_habit';
+    private const IMPORT_MAX_FILE_SIZE_BYTES = 2097152;
+    private const IMPORT_MAX_ITEMS = 500;
+    private const IMPORT_JSON_MAX_DEPTH = 64;
+    private const IMPORT_NAME_MAX_LENGTH = 191;
+    private const IMPORT_SLUG_MAX_LENGTH = 191;
+    private const IMPORT_DESCRIPTION_MAX_LENGTH = 5000;
 
     private WpdbHabitRepository $habits;
 
@@ -456,10 +462,33 @@ final class HabitAdminPage
             $this->redirect('habit-import-upload-failed');
         }
 
+        $max_file_size = $this->getMaxImportFileSizeBytes();
+        $reported_size = isset($upload['size']) ? max(0, (int) $upload['size']) : 0;
+        $disk_size = filesize($tmp_name);
+
+        if ($disk_size !== false) {
+            $reported_size = max($reported_size, (int) $disk_size);
+        }
+
+        if ($reported_size > $max_file_size) {
+            $this->redirect('habit-import-file-too-large');
+        }
+
         $file_type = wp_check_filetype_and_ext($tmp_name, $file_name);
         $extension = isset($file_type['ext']) ? sanitize_key((string) $file_type['ext']) : '';
+        $mime_type = isset($file_type['type']) ? sanitize_mime_type((string) $file_type['type']) : '';
+        $allowed_mime_types = [
+            'application/json',
+            'text/json',
+            'text/plain',
+            'application/octet-stream',
+        ];
 
         if ($extension !== 'json' && ! str_ends_with(strtolower($file_name), '.json')) {
+            $this->redirect('habit-import-invalid-file');
+        }
+
+        if ($mime_type !== '' && ! in_array($mime_type, $allowed_mime_types, true)) {
             $this->redirect('habit-import-invalid-file');
         }
 
@@ -469,7 +498,15 @@ final class HabitAdminPage
             $this->redirect('habit-import-empty-file');
         }
 
-        $decoded = json_decode($raw_content, true);
+        if (strlen($raw_content) > $max_file_size) {
+            $this->redirect('habit-import-file-too-large');
+        }
+
+        $decoded = json_decode($raw_content, true, self::IMPORT_JSON_MAX_DEPTH);
+
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            $this->redirect('habit-import-invalid-json');
+        }
 
         if (! is_array($decoded)) {
             $this->redirect('habit-import-invalid-json');
@@ -479,6 +516,10 @@ final class HabitAdminPage
 
         if ($items === []) {
             $this->redirect('habit-import-empty-file');
+        }
+
+        if (count($items) > self::IMPORT_MAX_ITEMS) {
+            $this->redirect('habit-import-too-many-items');
         }
 
         $created = 0;
@@ -491,7 +532,10 @@ final class HabitAdminPage
                 continue;
             }
 
-            $name = sanitize_text_field((string) ($item['name'] ?? ''));
+            $name = $this->truncateImportText(
+                sanitize_text_field((string) ($item['name'] ?? '')),
+                self::IMPORT_NAME_MAX_LENGTH
+            );
 
             if ($name === '') {
                 $skipped++;
@@ -499,10 +543,14 @@ final class HabitAdminPage
             }
 
             $category = $this->normalizeCategoryKey(sanitize_key((string) ($item['category'] ?? '')));
-            $description = sanitize_textarea_field((string) ($item['description'] ?? ''));
+            $description = $this->truncateImportText(
+                sanitize_textarea_field((string) ($item['description'] ?? '')),
+                self::IMPORT_DESCRIPTION_MAX_LENGTH
+            );
             $slug_input = isset($item['slug'])
                 ? sanitize_text_field((string) $item['slug'])
                 : $name;
+            $slug_input = $this->truncateImportText($slug_input, self::IMPORT_SLUG_MAX_LENGTH);
             $sort_order = isset($item['sort_order'])
                 ? max(0, (int) $item['sort_order'])
                 : ($next_sort_order + (int) $index);
@@ -646,6 +694,38 @@ final class HabitAdminPage
                         esc_html__('Import completed. Added: %1$d. Skipped: %2$d.', 'habit-tracker'),
                         $imported,
                         $skipped
+                    );
+                    ?>
+                </p>
+            </div>
+            <?php
+            return;
+        }
+
+        if ($notice_code === 'habit-import-file-too-large') {
+            ?>
+            <div class="notice notice-error">
+                <p>
+                    <?php
+                    printf(
+                        esc_html__('The import file is too large. Maximum allowed size is %s.', 'habit-tracker'),
+                        esc_html(size_format($this->getMaxImportFileSizeBytes()))
+                    );
+                    ?>
+                </p>
+            </div>
+            <?php
+            return;
+        }
+
+        if ($notice_code === 'habit-import-too-many-items') {
+            ?>
+            <div class="notice notice-error">
+                <p>
+                    <?php
+                    printf(
+                        esc_html__('The import file contains too many habits. Maximum allowed items: %d.', 'habit-tracker'),
+                        self::IMPORT_MAX_ITEMS
                     );
                     ?>
                 </p>
@@ -803,6 +883,30 @@ final class HabitAdminPage
         }
 
         return $max_sort_order + 1;
+    }
+
+    private function truncateImportText(string $value, int $max_length): string
+    {
+        if ($max_length <= 0 || $value === '') {
+            return '';
+        }
+
+        if (function_exists('mb_substr')) {
+            return (string) mb_substr($value, 0, $max_length, 'UTF-8');
+        }
+
+        return substr($value, 0, $max_length);
+    }
+
+    private function getMaxImportFileSizeBytes(): int
+    {
+        $wp_max_upload_size = function_exists('wp_max_upload_size') ? (int) wp_max_upload_size() : 0;
+
+        if ($wp_max_upload_size <= 0) {
+            return self::IMPORT_MAX_FILE_SIZE_BYTES;
+        }
+
+        return min(self::IMPORT_MAX_FILE_SIZE_BYTES, $wp_max_upload_size);
     }
 
     private function getListFiltersFromRequest(): array
