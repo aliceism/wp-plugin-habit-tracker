@@ -185,8 +185,8 @@ final class AuthShortcode
 
     private function renderNotice(): string
     {
-        $notice = sanitize_key((string) ($_GET[self::NOTICE_QUERY_KEY] ?? ''));
-        $error = sanitize_key((string) ($_GET[self::ERROR_QUERY_KEY] ?? ''));
+        $notice = sanitize_key((string) wp_unslash($_GET[self::NOTICE_QUERY_KEY] ?? ''));
+        $error = sanitize_key((string) wp_unslash($_GET[self::ERROR_QUERY_KEY] ?? ''));
 
         if ($notice === 'registered') {
             return sprintf(
