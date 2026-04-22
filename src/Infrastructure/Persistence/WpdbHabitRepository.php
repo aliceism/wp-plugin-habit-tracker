@@ -11,6 +11,10 @@ if (! defined('ABSPATH')) {
 
 final class WpdbHabitRepository
 {
+    private const MAX_NAME_LENGTH = 191;
+    private const MAX_SLUG_LENGTH = 191;
+    private const MAX_DESCRIPTION_LENGTH = 5000;
+
     private \wpdb $wpdb;
 
     private string $habits_table;
@@ -90,14 +94,21 @@ final class WpdbHabitRepository
     {
         $timestamp = current_time('mysql');
         $category = $this->normalizeCategoryKey((string) ($data['category'] ?? ''));
+        $name = $this->truncateTextField((string) ($data['name'] ?? ''), self::MAX_NAME_LENGTH);
+        $slug = $this->truncateTextField((string) ($data['slug'] ?? ''), self::MAX_SLUG_LENGTH);
+        $description = $this->truncateTextField((string) ($data['description'] ?? ''), self::MAX_DESCRIPTION_LENGTH);
+
+        if ($name === '' || $slug === '') {
+            return 0;
+        }
 
         $inserted = $this->wpdb->insert(
             $this->habits_table,
             [
-                'name'                     => $data['name'],
-                'slug'                     => $data['slug'],
+                'name'                     => $name,
+                'slug'                     => $slug,
                 'category'                 => $category,
-                'description'              => $data['description'],
+                'description'              => $description,
                 'default_frequency_type'   => $data['default_frequency_type'],
                 'default_target_count'     => $data['default_target_count'],
                 'default_target_days_mask' => $data['default_target_days_mask'],
@@ -137,14 +148,21 @@ final class WpdbHabitRepository
         }
 
         $category = $this->normalizeCategoryKey((string) ($data['category'] ?? ''));
+        $name = $this->truncateTextField((string) ($data['name'] ?? ''), self::MAX_NAME_LENGTH);
+        $slug = $this->truncateTextField((string) ($data['slug'] ?? ''), self::MAX_SLUG_LENGTH);
+        $description = $this->truncateTextField((string) ($data['description'] ?? ''), self::MAX_DESCRIPTION_LENGTH);
+
+        if ($name === '' || $slug === '') {
+            return false;
+        }
 
         $updated = $this->wpdb->update(
             $this->habits_table,
             [
-                'name'                     => $data['name'],
-                'slug'                     => $data['slug'],
+                'name'                     => $name,
+                'slug'                     => $slug,
                 'category'                 => $category,
-                'description'              => $data['description'],
+                'description'              => $description,
                 'default_frequency_type'   => $data['default_frequency_type'],
                 'default_target_count'     => $data['default_target_count'],
                 'default_target_days_mask' => $data['default_target_days_mask'],
@@ -246,11 +264,25 @@ final class WpdbHabitRepository
             $base_slug = 'habit';
         }
 
+        $base_slug = $this->truncateTextField($base_slug, self::MAX_SLUG_LENGTH);
+
+        if ($base_slug === '') {
+            $base_slug = 'habit';
+        }
+
         $candidate = $base_slug;
         $suffix = 2;
 
         while ($this->slugExists($candidate, $exclude_habit_id)) {
-            $candidate = $base_slug . '-' . $suffix;
+            $suffix_text = '-' . $suffix;
+            $available_length = self::MAX_SLUG_LENGTH - strlen($suffix_text);
+
+            if ($available_length <= 0) {
+                $candidate = substr($suffix_text, -self::MAX_SLUG_LENGTH);
+            } else {
+                $candidate = substr($base_slug, 0, $available_length) . $suffix_text;
+            }
+
             $suffix++;
         }
 
@@ -335,5 +367,18 @@ final class WpdbHabitRepository
         }
 
         return 'is_active DESC, sort_order ASC, name ASC, id ASC';
+    }
+
+    private function truncateTextField(string $value, int $max_length): string
+    {
+        if ($value === '' || $max_length <= 0) {
+            return '';
+        }
+
+        if (function_exists('mb_substr')) {
+            return (string) mb_substr($value, 0, $max_length, 'UTF-8');
+        }
+
+        return substr($value, 0, $max_length);
     }
 }

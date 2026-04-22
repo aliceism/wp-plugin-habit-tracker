@@ -21,6 +21,8 @@ final class HabitsShortcode
     private const ADD_CUSTOM_ACTION = 'habit_tracker_add_custom_habit';
     private const REMOVE_USER_HABIT_ACTION = 'habit_tracker_remove_user_habit';
     private const NOTICE_QUERY_KEY = 'ht_notice';
+    private const CUSTOM_NAME_MAX_LENGTH = 191;
+    private const CUSTOM_DESCRIPTION_MAX_LENGTH = 5000;
 
     private WpdbHabitRepository $habits;
 
@@ -210,7 +212,7 @@ final class HabitsShortcode
 
         if (! $is_nonce_valid) {
             $notice = $this->resolveFailedNoticeForAction($action);
-            $this->sendMutationAjaxSuccessPayload($notice, false);
+            $this->sendMutationAjaxErrorPayload($notice, 403);
         }
 
         $notice = $this->resolveNoticeForAction($action);
@@ -282,9 +284,15 @@ final class HabitsShortcode
 
     private function processAddCustomHabitFromRequest(): string
     {
-        $name = sanitize_text_field(wp_unslash($_POST['name'] ?? ''));
+        $name = $this->truncateTextField(
+            sanitize_text_field(wp_unslash($_POST['name'] ?? '')),
+            self::CUSTOM_NAME_MAX_LENGTH
+        );
         $category = $this->normalizeCategoryKey(sanitize_key((string) wp_unslash($_POST['category'] ?? '')));
-        $description = sanitize_textarea_field(wp_unslash($_POST['description'] ?? ''));
+        $description = $this->truncateTextField(
+            sanitize_textarea_field(wp_unslash($_POST['description'] ?? '')),
+            self::CUSTOM_DESCRIPTION_MAX_LENGTH
+        );
         $target_per_week = isset($_POST['target_per_week']) ? (int) wp_unslash($_POST['target_per_week']) : 7;
 
         if ($target_per_week < 1 || $target_per_week > 7) {
@@ -908,6 +916,16 @@ final class HabitsShortcode
 
     private function sendMutationAjaxSuccessPayload(string $notice, bool $ok): void
     {
+        $this->sendMutationAjaxPayload($notice, $ok, true, 200);
+    }
+
+    private function sendMutationAjaxErrorPayload(string $notice, int $status): void
+    {
+        $this->sendMutationAjaxPayload($notice, false, false, $status);
+    }
+
+    private function sendMutationAjaxPayload(string $notice, bool $ok, bool $success, int $status): void
+    {
         $context = $this->getLoggedInContext();
         $notice_html = $this->renderNoticeHtmlByCode($notice);
         $stack_html = $this->renderStackSectionHtml(
@@ -941,7 +959,11 @@ final class HabitsShortcode
             'close_modals' => false,
         ];
 
-        wp_send_json_success($payload);
+        if ($success) {
+            wp_send_json_success($payload, $status);
+        }
+
+        wp_send_json_error($payload, $status);
     }
 
     private function enqueueAssets(): void
@@ -1304,5 +1326,18 @@ final class HabitsShortcode
             'custom_default_category' => HabitRules::CATEGORY_MIND,
             'custom_default_target_per_week' => 7,
         ];
+    }
+
+    private function truncateTextField(string $value, int $max_length): string
+    {
+        if ($value === '' || $max_length <= 0) {
+            return '';
+        }
+
+        if (function_exists('mb_substr')) {
+            return (string) mb_substr($value, 0, $max_length, 'UTF-8');
+        }
+
+        return substr($value, 0, $max_length);
     }
 }

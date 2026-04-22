@@ -393,10 +393,19 @@ final class HabitAdminPage
             $this->redirect('habit-not-found');
         }
 
-        $name = sanitize_text_field(wp_unslash($_POST['name'] ?? ''));
-        $slug_input = sanitize_text_field(wp_unslash($_POST['slug'] ?? ''));
+        $name = $this->truncateImportText(
+            sanitize_text_field(wp_unslash($_POST['name'] ?? '')),
+            self::IMPORT_NAME_MAX_LENGTH
+        );
+        $slug_input = $this->truncateImportText(
+            sanitize_text_field(wp_unslash($_POST['slug'] ?? '')),
+            self::IMPORT_SLUG_MAX_LENGTH
+        );
         $category = $this->normalizeCategoryKey(sanitize_key((string) wp_unslash($_POST['category'] ?? '')));
-        $description = sanitize_textarea_field(wp_unslash($_POST['description'] ?? ''));
+        $description = $this->truncateImportText(
+            sanitize_textarea_field(wp_unslash($_POST['description'] ?? '')),
+            self::IMPORT_DESCRIPTION_MAX_LENGTH
+        );
         $sort_order = max(0, (int) wp_unslash($_POST['sort_order'] ?? 0));
         $is_active = isset($_POST['is_active']) ? 1 : 0;
 

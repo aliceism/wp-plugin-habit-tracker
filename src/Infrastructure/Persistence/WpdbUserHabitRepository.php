@@ -11,6 +11,9 @@ if (! defined('ABSPATH')) {
 
 final class WpdbUserHabitRepository
 {
+    private const MAX_NAME_LENGTH = 191;
+    private const MAX_DESCRIPTION_LENGTH = 5000;
+
     private \wpdb $wpdb;
 
     private string $user_habits_table;
@@ -71,6 +74,12 @@ final class WpdbUserHabitRepository
 
         [$frequency_type, $target_count, $target_days_mask] = $this->resolveCustomFrequencyConfig($data);
         $category = $this->normalizeCategoryKey((string) ($data['category'] ?? ''));
+        $name = $this->truncateTextField((string) ($data['name'] ?? ''), self::MAX_NAME_LENGTH);
+        $description = $this->truncateTextField((string) ($data['description'] ?? ''), self::MAX_DESCRIPTION_LENGTH);
+
+        if ($name === '') {
+            return 0;
+        }
 
         $timestamp = current_time('mysql');
         $inserted = $this->wpdb->insert(
@@ -79,9 +88,9 @@ final class WpdbUserHabitRepository
                 'user_id'            => $user_id,
                 'habit_id'           => null,
                 'source_type'        => 'custom',
-                'name'               => $data['name'],
+                'name'               => $name,
                 'category'           => $category,
-                'description'        => $data['description'],
+                'description'        => $description,
                 'frequency_type'     => $frequency_type,
                 'target_count'       => $target_count,
                 'target_days_mask'   => $target_days_mask,
@@ -134,6 +143,12 @@ final class WpdbUserHabitRepository
 
         [$frequency_type, $target_count, $target_days_mask] = $this->resolveFrequencyConfig($habit, $frequency_override);
         $category = $this->normalizeCategoryKey((string) ($habit->category ?? ''));
+        $habit_name = $this->truncateTextField((string) ($habit->name ?? ''), self::MAX_NAME_LENGTH);
+        $habit_description = $this->truncateTextField((string) ($habit->description ?? ''), self::MAX_DESCRIPTION_LENGTH);
+
+        if ($habit_name === '') {
+            return 'error';
+        }
 
         $existing = $this->findByUserAndHabitId($user_id, $habit_id);
 
@@ -146,9 +161,9 @@ final class WpdbUserHabitRepository
                 $this->user_habits_table,
                 [
                     'source_type'      => 'habit',
-                    'name'             => (string) $habit->name,
+                    'name'             => $habit_name,
                     'category'         => $category,
-                    'description'      => (string) $habit->description,
+                    'description'      => $habit_description,
                     'frequency_type'   => $frequency_type,
                     'target_count'     => $target_count,
                     'target_days_mask' => $target_days_mask,
@@ -171,9 +186,9 @@ final class WpdbUserHabitRepository
                 'user_id'            => $user_id,
                 'habit_id'           => $habit_id,
                 'source_type'        => 'habit',
-                'name'               => (string) $habit->name,
+                'name'               => $habit_name,
                 'category'           => $category,
-                'description'        => (string) $habit->description,
+                'description'        => $habit_description,
                 'frequency_type'     => $frequency_type,
                 'target_count'       => $target_count,
                 'target_days_mask'   => $target_days_mask,
@@ -323,5 +338,18 @@ final class WpdbUserHabitRepository
     private function normalizeCategoryKey(string $category): string
     {
         return HabitRules::normalizeCategoryKey($category);
+    }
+
+    private function truncateTextField(string $value, int $max_length): string
+    {
+        if ($value === '' || $max_length <= 0) {
+            return '';
+        }
+
+        if (function_exists('mb_substr')) {
+            return (string) mb_substr($value, 0, $max_length, 'UTF-8');
+        }
+
+        return substr($value, 0, $max_length);
     }
 }
