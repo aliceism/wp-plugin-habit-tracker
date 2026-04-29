@@ -23,6 +23,8 @@
   const HABITS_ACTIONS_FALLBACK = new Set([
     "habit_tracker_add_shared_habit",
     "habit_tracker_add_custom_habit",
+    "habit_tracker_update_custom_habit",
+    "habit_tracker_update_shared_habit_frequency",
     "habit_tracker_remove_user_habit",
   ]);
 
@@ -517,6 +519,22 @@
       config.addCustomAction !== ""
     ) {
       actions.add(config.addCustomAction);
+    }
+
+    if (
+      config &&
+      typeof config.updateAction === "string" &&
+      config.updateAction !== ""
+    ) {
+      actions.add(config.updateAction);
+    }
+
+    if (
+      config &&
+      typeof config.updateSharedFrequencyAction === "string" &&
+      config.updateSharedFrequencyAction !== ""
+    ) {
+      actions.add(config.updateSharedFrequencyAction);
     }
 
     if (

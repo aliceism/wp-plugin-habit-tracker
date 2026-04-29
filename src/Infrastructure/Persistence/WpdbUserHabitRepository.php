@@ -295,6 +295,114 @@ final class WpdbUserHabitRepository
         return 'archived';
     }
 
+    public function updateActiveCustomHabitByIdForUser(int $user_id, int $user_habit_id, array $data): string
+    {
+        if ($user_id <= 0 || $user_habit_id <= 0) {
+            return 'not-found';
+        }
+
+        $name = $this->truncateTextField((string) ($data['name'] ?? ''), self::MAX_NAME_LENGTH);
+        $name = sanitize_text_field($name);
+
+        if ($name === '') {
+            return 'name-required';
+        }
+
+        [$frequency_type, $target_count, $target_days_mask] = $this->resolveCustomFrequencyConfig($data);
+        $category = $this->normalizeCategoryKey((string) ($data['category'] ?? ''));
+        $description = $this->truncateTextField((string) ($data['description'] ?? ''), self::MAX_DESCRIPTION_LENGTH);
+        $description = sanitize_textarea_field($description);
+
+        $updated = $this->wpdb->update(
+            $this->user_habits_table,
+            [
+                'name'             => $name,
+                'category'         => $category,
+                'description'      => $description,
+                'frequency_type'   => $frequency_type,
+                'target_count'     => $target_count,
+                'target_days_mask' => $target_days_mask,
+                'updated_at'       => current_time('mysql'),
+            ],
+            [
+                'id' => $user_habit_id,
+                'user_id' => $user_id,
+                'source_type' => 'custom',
+                'is_active' => 1,
+            ],
+            ['%s', '%s', '%s', '%s', '%d', '%d', '%s'],
+            ['%d', '%d', '%s', '%d']
+        );
+
+        if ($updated === false) {
+            return 'error';
+        }
+
+        if ($updated === 0) {
+            $exists_sql = $this->wpdb->prepare(
+                "SELECT id FROM {$this->user_habits_table} WHERE id = %d AND user_id = %d AND source_type = 'custom' AND is_active = 1 LIMIT 1",
+                $user_habit_id,
+                $user_id
+            );
+            $existing_id = (int) $this->wpdb->get_var($exists_sql);
+
+            return $existing_id > 0 ? 'updated' : 'not-found';
+        }
+
+        return 'updated';
+    }
+
+    public function updateActiveSharedHabitTargetPerWeekByIdForUser(
+        int $user_id,
+        int $user_habit_id,
+        int $target_per_week
+    ): string {
+        if ($user_id <= 0 || $user_habit_id <= 0) {
+            return 'not-found';
+        }
+
+        $normalized_target_per_week = HabitRules::normalizeTargetPerWeek($target_per_week);
+
+        if ($normalized_target_per_week <= 0) {
+            return 'not-found';
+        }
+
+        $updated = $this->wpdb->update(
+            $this->user_habits_table,
+            [
+                'frequency_type' => HabitRules::FREQUENCY_WEEKLY,
+                'target_count' => $normalized_target_per_week,
+                'target_days_mask' => HabitRules::DEFAULT_TARGET_DAYS_MASK,
+                'updated_at' => current_time('mysql'),
+            ],
+            [
+                'id' => $user_habit_id,
+                'user_id' => $user_id,
+                'source_type' => 'habit',
+                'is_active' => 1,
+            ],
+            ['%s', '%d', '%d', '%s'],
+            ['%d', '%d', '%s', '%d']
+        );
+
+        if ($updated === false) {
+            return 'error';
+        }
+
+        if ($updated === 0) {
+            $exists_sql = $this->wpdb->prepare(
+                "SELECT id FROM {$this->user_habits_table} WHERE id = %d AND user_id = %d AND source_type = 'habit' AND is_active = 1 LIMIT 1",
+                $user_habit_id,
+                $user_id
+            );
+            $existing_id = (int) $this->wpdb->get_var($exists_sql);
+
+            return $existing_id > 0 ? 'updated' : 'not-found';
+        }
+
+        return 'updated';
+    }
+
     private function findByUserAndHabitId(int $user_id, int $habit_id): ?object
     {
         $sql = $this->wpdb->prepare(

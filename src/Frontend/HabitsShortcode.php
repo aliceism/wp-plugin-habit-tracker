@@ -19,6 +19,8 @@ final class HabitsShortcode
     private const SHORTCODE_CUSTOM = 'habit_tracker_habits_custom';
     private const ADD_SHARED_ACTION = 'habit_tracker_add_shared_habit';
     private const ADD_CUSTOM_ACTION = 'habit_tracker_add_custom_habit';
+    private const UPDATE_CUSTOM_ACTION = 'habit_tracker_update_custom_habit';
+    private const UPDATE_SHARED_FREQUENCY_ACTION = 'habit_tracker_update_shared_habit_frequency';
     private const REMOVE_USER_HABIT_ACTION = 'habit_tracker_remove_user_habit';
     private const NOTICE_QUERY_KEY = 'ht_notice';
     private const CUSTOM_NAME_MAX_LENGTH = 191;
@@ -44,15 +46,23 @@ final class HabitsShortcode
 
         add_action('admin_post_' . self::ADD_SHARED_ACTION, [$this, 'handleAddSharedHabit']);
         add_action('admin_post_' . self::ADD_CUSTOM_ACTION, [$this, 'handleAddCustomHabit']);
+        add_action('admin_post_' . self::UPDATE_CUSTOM_ACTION, [$this, 'handleUpdateCustomHabit']);
+        add_action('admin_post_' . self::UPDATE_SHARED_FREQUENCY_ACTION, [$this, 'handleUpdateSharedHabitFrequency']);
         add_action('admin_post_' . self::REMOVE_USER_HABIT_ACTION, [$this, 'handleRemoveUserHabit']);
         add_action('admin_post_nopriv_' . self::ADD_SHARED_ACTION, [$this, 'handleUnauthorized']);
         add_action('admin_post_nopriv_' . self::ADD_CUSTOM_ACTION, [$this, 'handleUnauthorized']);
+        add_action('admin_post_nopriv_' . self::UPDATE_CUSTOM_ACTION, [$this, 'handleUnauthorized']);
+        add_action('admin_post_nopriv_' . self::UPDATE_SHARED_FREQUENCY_ACTION, [$this, 'handleUnauthorized']);
         add_action('admin_post_nopriv_' . self::REMOVE_USER_HABIT_ACTION, [$this, 'handleUnauthorized']);
         add_action('wp_ajax_' . self::ADD_SHARED_ACTION, [$this, 'handleAddSharedHabitAjax']);
         add_action('wp_ajax_' . self::ADD_CUSTOM_ACTION, [$this, 'handleAddCustomHabitAjax']);
+        add_action('wp_ajax_' . self::UPDATE_CUSTOM_ACTION, [$this, 'handleUpdateCustomHabitAjax']);
+        add_action('wp_ajax_' . self::UPDATE_SHARED_FREQUENCY_ACTION, [$this, 'handleUpdateSharedHabitFrequencyAjax']);
         add_action('wp_ajax_' . self::REMOVE_USER_HABIT_ACTION, [$this, 'handleRemoveUserHabitAjax']);
         add_action('wp_ajax_nopriv_' . self::ADD_SHARED_ACTION, [$this, 'handleUnauthorizedAjax']);
         add_action('wp_ajax_nopriv_' . self::ADD_CUSTOM_ACTION, [$this, 'handleUnauthorizedAjax']);
+        add_action('wp_ajax_nopriv_' . self::UPDATE_CUSTOM_ACTION, [$this, 'handleUnauthorizedAjax']);
+        add_action('wp_ajax_nopriv_' . self::UPDATE_SHARED_FREQUENCY_ACTION, [$this, 'handleUnauthorizedAjax']);
         add_action('wp_ajax_nopriv_' . self::REMOVE_USER_HABIT_ACTION, [$this, 'handleUnauthorizedAjax']);
     }
 
@@ -202,6 +212,16 @@ final class HabitsShortcode
         $this->handleMutationAjax(self::REMOVE_USER_HABIT_ACTION);
     }
 
+    public function handleUpdateCustomHabitAjax(): void
+    {
+        $this->handleMutationAjax(self::UPDATE_CUSTOM_ACTION);
+    }
+
+    public function handleUpdateSharedHabitFrequencyAjax(): void
+    {
+        $this->handleMutationAjax(self::UPDATE_SHARED_FREQUENCY_ACTION);
+    }
+
     private function handleMutationAjax(string $action): void
     {
         if (! is_user_logged_in()) {
@@ -220,12 +240,24 @@ final class HabitsShortcode
             'shared-added' => true,
             'shared-already-added' => true,
             'custom-added' => true,
+            'custom-updated' => true,
+            'shared-frequency-updated' => true,
             'stack-removed' => true,
         ];
+        $close_modal_notices = [
+            'shared-added' => true,
+            'shared-already-added' => true,
+            'custom-added' => true,
+            'custom-updated' => true,
+            'shared-frequency-updated' => true,
+        ];
+        $is_success = isset($success_notices[$notice]);
+        $should_close_modals = $is_success && isset($close_modal_notices[$notice]);
 
         $this->sendMutationAjaxSuccessPayload(
             $notice,
-            isset($success_notices[$notice])
+            $is_success,
+            $should_close_modals
         );
     }
 
@@ -282,6 +314,28 @@ final class HabitsShortcode
         $this->redirectWithNotice($notice);
     }
 
+    public function handleUpdateCustomHabit(): void
+    {
+        if (! is_user_logged_in()) {
+            $this->handleUnauthorized();
+        }
+
+        check_admin_referer(self::UPDATE_CUSTOM_ACTION);
+        $notice = $this->processUpdateCustomHabitFromRequest();
+        $this->redirectWithNotice($notice);
+    }
+
+    public function handleUpdateSharedHabitFrequency(): void
+    {
+        if (! is_user_logged_in()) {
+            $this->handleUnauthorized();
+        }
+
+        check_admin_referer(self::UPDATE_SHARED_FREQUENCY_ACTION);
+        $notice = $this->processUpdateSharedHabitFrequencyFromRequest();
+        $this->redirectWithNotice($notice);
+    }
+
     private function processAddCustomHabitFromRequest(): string
     {
         $name = $this->truncateTextField(
@@ -318,6 +372,88 @@ final class HabitsShortcode
         }
 
         return 'custom-added';
+    }
+
+    private function processUpdateCustomHabitFromRequest(): string
+    {
+        $user_habit_id = isset($_POST['user_habit_id']) ? absint(wp_unslash($_POST['user_habit_id'])) : 0;
+        $name = $this->truncateTextField(
+            sanitize_text_field(wp_unslash($_POST['name'] ?? '')),
+            self::CUSTOM_NAME_MAX_LENGTH
+        );
+        $category = $this->normalizeCategoryKey(sanitize_key((string) wp_unslash($_POST['category'] ?? '')));
+        $description = $this->truncateTextField(
+            sanitize_textarea_field(wp_unslash($_POST['description'] ?? '')),
+            self::CUSTOM_DESCRIPTION_MAX_LENGTH
+        );
+        $target_per_week = isset($_POST['target_per_week']) ? (int) wp_unslash($_POST['target_per_week']) : 7;
+
+        if ($target_per_week < 1 || $target_per_week > 7) {
+            $target_per_week = 7;
+        }
+
+        if ($user_habit_id <= 0) {
+            return 'custom-update-invalid';
+        }
+
+        if ($name === '') {
+            return 'custom-update-name-required';
+        }
+
+        $result = $this->user_habits->updateActiveCustomHabitByIdForUser(
+            get_current_user_id(),
+            $user_habit_id,
+            [
+                'name' => $name,
+                'category' => $category,
+                'description' => $description,
+                'target_per_week' => $target_per_week,
+            ]
+        );
+
+        if ($result === 'updated') {
+            return 'custom-updated';
+        }
+
+        if ($result === 'name-required') {
+            return 'custom-update-name-required';
+        }
+
+        if ($result === 'not-found') {
+            return 'custom-update-invalid';
+        }
+
+        return 'custom-update-failed';
+    }
+
+    private function processUpdateSharedHabitFrequencyFromRequest(): string
+    {
+        $user_habit_id = isset($_POST['user_habit_id']) ? absint(wp_unslash($_POST['user_habit_id'])) : 0;
+        $target_per_week = isset($_POST['target_per_week']) ? (int) wp_unslash($_POST['target_per_week']) : 7;
+
+        if ($target_per_week < 1 || $target_per_week > 7) {
+            return 'shared-frequency-invalid';
+        }
+
+        if ($user_habit_id <= 0) {
+            return 'shared-frequency-invalid';
+        }
+
+        $result = $this->user_habits->updateActiveSharedHabitTargetPerWeekByIdForUser(
+            get_current_user_id(),
+            $user_habit_id,
+            $target_per_week
+        );
+
+        if ($result === 'updated') {
+            return 'shared-frequency-updated';
+        }
+
+        if ($result === 'not-found') {
+            return 'shared-frequency-invalid';
+        }
+
+        return 'shared-frequency-failed';
     }
 
     public function handleRemoveUserHabit(): void
@@ -787,17 +923,45 @@ final class HabitsShortcode
                 'class' => 'habit-tracker-notice habit-tracker-notice--error',
                 'text' => __('Could not add the shared habit.', 'habit-tracker'),
             ],
+            'shared-frequency-updated' => [
+                'class' => 'habit-tracker-notice habit-tracker-notice--success',
+                'text' => __('Weekly goal updated for this shared habit.', 'habit-tracker'),
+            ],
+            'shared-frequency-invalid' => [
+                'class' => 'habit-tracker-notice habit-tracker-notice--info',
+                'text' => __('This shared habit is no longer available in your dashboard stack.', 'habit-tracker'),
+            ],
+            'shared-frequency-failed' => [
+                'class' => 'habit-tracker-notice habit-tracker-notice--error',
+                'text' => __('Could not update the weekly goal for this habit.', 'habit-tracker'),
+            ],
             'custom-added' => [
                 'class' => 'habit-tracker-notice habit-tracker-notice--success',
                 'text' => __('Custom habit added to your dashboard.', 'habit-tracker'),
+            ],
+            'custom-updated' => [
+                'class' => 'habit-tracker-notice habit-tracker-notice--success',
+                'text' => __('Custom habit updated.', 'habit-tracker'),
             ],
             'custom-name-required' => [
                 'class' => 'habit-tracker-notice habit-tracker-notice--error',
                 'text' => __('Custom habit name is required.', 'habit-tracker'),
             ],
+            'custom-update-name-required' => [
+                'class' => 'habit-tracker-notice habit-tracker-notice--error',
+                'text' => __('Custom habit name is required.', 'habit-tracker'),
+            ],
+            'custom-update-invalid' => [
+                'class' => 'habit-tracker-notice habit-tracker-notice--info',
+                'text' => __('This custom habit is no longer available in your dashboard stack.', 'habit-tracker'),
+            ],
             'custom-add-failed' => [
                 'class' => 'habit-tracker-notice habit-tracker-notice--error',
                 'text' => __('Could not create custom habit.', 'habit-tracker'),
+            ],
+            'custom-update-failed' => [
+                'class' => 'habit-tracker-notice habit-tracker-notice--error',
+                'text' => __('Could not update custom habit.', 'habit-tracker'),
             ],
             'stack-removed' => [
                 'class' => 'habit-tracker-notice habit-tracker-notice--success',
@@ -890,6 +1054,14 @@ final class HabitsShortcode
             return $this->processAddCustomHabitFromRequest();
         }
 
+        if ($action === self::UPDATE_SHARED_FREQUENCY_ACTION) {
+            return $this->processUpdateSharedHabitFrequencyFromRequest();
+        }
+
+        if ($action === self::UPDATE_CUSTOM_ACTION) {
+            return $this->processUpdateCustomHabitFromRequest();
+        }
+
         if ($action === self::REMOVE_USER_HABIT_ACTION) {
             return $this->processRemoveUserHabitFromRequest();
         }
@@ -907,6 +1079,14 @@ final class HabitsShortcode
             return 'custom-add-failed';
         }
 
+        if ($action === self::UPDATE_SHARED_FREQUENCY_ACTION) {
+            return 'shared-frequency-failed';
+        }
+
+        if ($action === self::UPDATE_CUSTOM_ACTION) {
+            return 'custom-update-failed';
+        }
+
         if ($action === self::REMOVE_USER_HABIT_ACTION) {
             return 'stack-remove-failed';
         }
@@ -914,17 +1094,23 @@ final class HabitsShortcode
         return 'shared-add-failed';
     }
 
-    private function sendMutationAjaxSuccessPayload(string $notice, bool $ok): void
+    private function sendMutationAjaxSuccessPayload(string $notice, bool $ok, bool $close_modals = false): void
     {
-        $this->sendMutationAjaxPayload($notice, $ok, true, 200);
+        $this->sendMutationAjaxPayload($notice, $ok, true, 200, $close_modals);
     }
 
     private function sendMutationAjaxErrorPayload(string $notice, int $status): void
     {
-        $this->sendMutationAjaxPayload($notice, false, false, $status);
+        $this->sendMutationAjaxPayload($notice, false, false, $status, false);
     }
 
-    private function sendMutationAjaxPayload(string $notice, bool $ok, bool $success, int $status): void
+    private function sendMutationAjaxPayload(
+        string $notice,
+        bool $ok,
+        bool $success,
+        int $status,
+        bool $close_modals = false
+    ): void
     {
         $context = $this->getLoggedInContext();
         $notice_html = $this->renderNoticeHtmlByCode($notice);
@@ -956,7 +1142,7 @@ final class HabitsShortcode
             'notice_html' => $notice_html,
             'stack_html' => $stack_html,
             'shared_html' => $shared_html,
-            'close_modals' => false,
+            'close_modals' => $close_modals,
         ];
 
         if ($success) {
@@ -1003,6 +1189,8 @@ final class HabitsShortcode
                 'ajaxUrl' => admin_url('admin-ajax.php'),
                 'addSharedAction' => self::ADD_SHARED_ACTION,
                 'addCustomAction' => self::ADD_CUSTOM_ACTION,
+                'updateAction' => self::UPDATE_CUSTOM_ACTION,
+                'updateSharedFrequencyAction' => self::UPDATE_SHARED_FREQUENCY_ACTION,
                 'removeAction' => self::REMOVE_USER_HABIT_ACTION,
                 'stackControls' => [
                     'searchPlaceholder' => __('Search habits...', 'habit-tracker'),
@@ -1188,6 +1376,13 @@ final class HabitsShortcode
 
         foreach ($user_dashboard_habits as $dashboard_habit) {
             $stack_item_id = isset($dashboard_habit->id) ? (int) $dashboard_habit->id : 0;
+            $category_key = $this->resolveStackCategoryClass($dashboard_habit);
+            $is_custom = (string) ($dashboard_habit->source_type ?? '') === 'custom';
+            $form_category_key = sanitize_key((string) ($dashboard_habit->category ?? ''));
+
+            if (! HabitRules::isCoreCategoryKey($form_category_key)) {
+                $form_category_key = HabitRules::CATEGORY_LIFE;
+            }
             $frequency_type = HabitRules::normalizeFrequencyType(
                 (string) ($dashboard_habit->frequency_type ?? HabitRules::FREQUENCY_DAILY)
             );
@@ -1202,13 +1397,28 @@ final class HabitsShortcode
                 'description' => trim((string) ($dashboard_habit->description ?? '')),
                 'target_per_week' => $target_per_week,
                 'target_label' => $this->formatTargetPerWeekLabel($target_per_week),
-                'category_class' => $this->resolveStackCategoryClass($dashboard_habit),
+                'category_class' => $category_key,
+                'category_key' => $form_category_key,
+                'is_custom' => $is_custom,
+            ];
+        }
+
+        $target_options = [];
+
+        foreach ($this->targetPerWeekOptions() as $target_option) {
+            $target_options[] = [
+                'value' => (int) $target_option,
+                'label' => $this->formatTargetPerWeekLabel((int) $target_option),
             ];
         }
 
         return [
             'items' => $items,
+            'categories' => $this->categoryOptions(),
+            'target_options' => $target_options,
             'redirect_url' => $resolved_redirect,
+            'update_action' => self::UPDATE_CUSTOM_ACTION,
+            'update_shared_frequency_action' => self::UPDATE_SHARED_FREQUENCY_ACTION,
             'remove_action' => self::REMOVE_USER_HABIT_ACTION,
             'admin_post_url' => admin_url('admin-post.php'),
         ];
