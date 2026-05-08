@@ -36,7 +36,7 @@ final class WpdbHabitRepository
 
     public function findAllForAdmin(): array
     {
-        $sql = "SELECT * FROM {$this->habits_table} ORDER BY is_active DESC, sort_order ASC, name ASC";
+        $sql = "SELECT * FROM {$this->habits_table} ORDER BY is_active DESC, id ASC";
 
         $results = $this->wpdb->get_results($sql);
 
@@ -76,7 +76,7 @@ final class WpdbHabitRepository
 
     public function findActiveForFrontend(): array
     {
-        $sql = "SELECT * FROM {$this->habits_table} WHERE is_active = 1 ORDER BY sort_order ASC, name ASC";
+        $sql = "SELECT * FROM {$this->habits_table} WHERE is_active = 1 ORDER BY created_at ASC, id ASC";
         $results = $this->wpdb->get_results($sql);
 
         return is_array($results) ? $results : [];
@@ -359,11 +359,11 @@ final class WpdbHabitRepository
     private function resolveAdminOrderBy(string $sort): string
     {
         if ($sort === 'name_asc') {
-            return 'name ASC, sort_order ASC, id ASC';
+            return 'name ASC, id ASC';
         }
 
         if ($sort === 'name_desc') {
-            return 'name DESC, sort_order ASC, id ASC';
+            return 'name DESC, id ASC';
         }
 
         if ($sort === 'updated_desc') {
@@ -374,7 +374,7 @@ final class WpdbHabitRepository
             return 'updated_at ASC, name ASC, id ASC';
         }
 
-        return 'is_active DESC, sort_order ASC, name ASC, id ASC';
+        return 'is_active DESC, id ASC';
     }
 
     private function truncateTextField(string $value, int $max_length): string
