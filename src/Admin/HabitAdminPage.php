@@ -13,12 +13,8 @@ final class HabitAdminPage
 {
     private const PAGE_SLUG = 'habit-tracker';
     private const SAVE_ACTION = 'habit_tracker_save_habit';
-    private const IMPORT_ACTION = 'habit_tracker_import_habits';
     private const TOGGLE_ACTION = 'habit_tracker_toggle_habit';
     private const DELETE_ACTION = 'habit_tracker_delete_habit';
-    private const IMPORT_MAX_FILE_SIZE_BYTES = 2097152;
-    private const IMPORT_MAX_ITEMS = 500;
-    private const IMPORT_JSON_MAX_DEPTH = 64;
     private const IMPORT_NAME_MAX_LENGTH = 191;
     private const IMPORT_SLUG_MAX_LENGTH = 191;
     private const IMPORT_DESCRIPTION_MAX_LENGTH = 5000;
@@ -34,7 +30,6 @@ final class HabitAdminPage
     {
         add_action('admin_menu', [$this, 'registerMenu']);
         add_action('admin_post_' . self::SAVE_ACTION, [$this, 'handleSave']);
-        add_action('admin_post_' . self::IMPORT_ACTION, [$this, 'handleImport']);
         add_action('admin_post_' . self::TOGGLE_ACTION, [$this, 'handleToggle']);
         add_action('admin_post_' . self::DELETE_ACTION, [$this, 'handleDelete']);
     }
@@ -201,28 +196,6 @@ final class HabitAdminPage
                             <?php esc_html_e('Cancel Editing', 'habit-tracker'); ?>
                         </a>
                     <?php endif; ?>
-                </form>
-            </div>
-
-            <div class="card" style="max-width: 880px; padding: 20px; margin-top: 20px;">
-                <h2><?php esc_html_e('Import Shared Habits (JSON)', 'habit-tracker'); ?></h2>
-                <p><?php esc_html_e('Upload a JSON file to create habits in bulk. Supported fields per item: name, category, description, slug, sort_order.', 'habit-tracker'); ?></p>
-                <p class="description"><code>[{"name":"Read 10 pages","category":"mind","description":"Daily reading"}]</code></p>
-
-                <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" enctype="multipart/form-data">
-                    <input type="hidden" name="action" value="<?php echo esc_attr(self::IMPORT_ACTION); ?>">
-                    <?php wp_nonce_field(self::IMPORT_ACTION); ?>
-
-                    <p>
-                        <input
-                            type="file"
-                            name="habits_json_file"
-                            accept=".json,application/json"
-                            required
-                        >
-                    </p>
-
-                    <?php submit_button(__('Import Habits', 'habit-tracker')); ?>
                 </form>
             </div>
 
@@ -447,158 +420,6 @@ final class HabitAdminPage
         $this->redirect('habit-created');
     }
 
-    public function handleImport(): void
-    {
-        $this->assertManageOptions();
-        check_admin_referer(self::IMPORT_ACTION);
-
-        $upload = $_FILES['habits_json_file'] ?? null;
-
-        if (! is_array($upload)) {
-            $this->redirect('habit-import-file-required');
-        }
-
-        $upload_error = isset($upload['error']) ? (int) $upload['error'] : UPLOAD_ERR_NO_FILE;
-
-        if ($upload_error !== UPLOAD_ERR_OK) {
-            $this->redirect('habit-import-upload-failed');
-        }
-
-        $tmp_name = isset($upload['tmp_name']) ? (string) $upload['tmp_name'] : '';
-        $file_name = isset($upload['name']) ? sanitize_file_name((string) $upload['name']) : '';
-
-        if ($tmp_name === '' || ! is_uploaded_file($tmp_name)) {
-            $this->redirect('habit-import-upload-failed');
-        }
-
-        $max_file_size = $this->getMaxImportFileSizeBytes();
-        $reported_size = isset($upload['size']) ? max(0, (int) $upload['size']) : 0;
-        $disk_size = filesize($tmp_name);
-
-        if ($disk_size !== false) {
-            $reported_size = max($reported_size, (int) $disk_size);
-        }
-
-        if ($reported_size > $max_file_size) {
-            $this->redirect('habit-import-file-too-large');
-        }
-
-        $file_type = wp_check_filetype_and_ext($tmp_name, $file_name);
-        $extension = isset($file_type['ext']) ? sanitize_key((string) $file_type['ext']) : '';
-        $mime_type = isset($file_type['type']) ? sanitize_mime_type((string) $file_type['type']) : '';
-        $allowed_mime_types = [
-            'application/json',
-            'text/json',
-            'text/plain',
-            'application/octet-stream',
-        ];
-
-        if ($extension !== 'json' && ! str_ends_with(strtolower($file_name), '.json')) {
-            $this->redirect('habit-import-invalid-file');
-        }
-
-        if ($mime_type !== '' && ! in_array($mime_type, $allowed_mime_types, true)) {
-            $this->redirect('habit-import-invalid-file');
-        }
-
-        $raw_content = file_get_contents($tmp_name);
-
-        if (! is_string($raw_content) || trim($raw_content) === '') {
-            $this->redirect('habit-import-empty-file');
-        }
-
-        if (strlen($raw_content) > $max_file_size) {
-            $this->redirect('habit-import-file-too-large');
-        }
-
-        $decoded = json_decode($raw_content, true, self::IMPORT_JSON_MAX_DEPTH);
-
-        if (json_last_error() !== JSON_ERROR_NONE) {
-            $this->redirect('habit-import-invalid-json');
-        }
-
-        if (! is_array($decoded)) {
-            $this->redirect('habit-import-invalid-json');
-        }
-
-        $items = $this->normalizeImportItems($decoded);
-
-        if ($items === []) {
-            $this->redirect('habit-import-empty-file');
-        }
-
-        if (count($items) > self::IMPORT_MAX_ITEMS) {
-            $this->redirect('habit-import-too-many-items');
-        }
-
-        $created = 0;
-        $skipped = 0;
-        $next_sort_order = $this->getNextSortOrderBase();
-
-        foreach ($items as $index => $item) {
-            if (! is_array($item)) {
-                $skipped++;
-                continue;
-            }
-
-            $name = $this->truncateImportText(
-                sanitize_text_field((string) ($item['name'] ?? '')),
-                self::IMPORT_NAME_MAX_LENGTH
-            );
-
-            if ($name === '') {
-                $skipped++;
-                continue;
-            }
-
-            $category = $this->normalizeCategoryKey(sanitize_key((string) ($item['category'] ?? '')));
-            $description = $this->truncateImportText(
-                sanitize_textarea_field((string) ($item['description'] ?? '')),
-                self::IMPORT_DESCRIPTION_MAX_LENGTH
-            );
-            $slug_input = isset($item['slug'])
-                ? sanitize_text_field((string) $item['slug'])
-                : $name;
-            $slug_input = $this->truncateImportText($slug_input, self::IMPORT_SLUG_MAX_LENGTH);
-            $sort_order = isset($item['sort_order'])
-                ? max(0, (int) $item['sort_order'])
-                : ($next_sort_order + (int) $index);
-
-            $data = [
-                'name'                     => $name,
-                'slug'                     => $this->habits->generateUniqueSlug($slug_input),
-                'category'                 => $category,
-                'description'              => $description,
-                'default_frequency_type'   => HabitRules::FREQUENCY_DAILY,
-                'default_target_count'     => HabitRules::DEFAULT_TARGET_COUNT,
-                'default_target_days_mask' => HabitRules::DEFAULT_TARGET_DAYS_MASK,
-                'is_active'                => 1,
-                'sort_order'               => $sort_order,
-            ];
-
-            $created_habit_id = $this->habits->create($data, get_current_user_id());
-
-            if ($created_habit_id <= 0) {
-                $skipped++;
-                continue;
-            }
-
-            $created++;
-        }
-
-        if ($created <= 0) {
-            $this->redirect(
-                'habit-import-none-created',
-                ['imported' => 0, 'skipped' => $skipped]
-            );
-        }
-
-        $this->redirect(
-            'habit-import-completed',
-            ['imported' => $created, 'skipped' => $skipped]
-        );
-    }
-
     public function handleToggle(): void
     {
         $this->assertManageOptions();
@@ -692,57 +513,6 @@ final class HabitAdminPage
             return;
         }
 
-        if ($notice_code === 'habit-import-completed') {
-            $imported = isset($_GET['imported']) ? absint(wp_unslash($_GET['imported'])) : 0;
-            $skipped = isset($_GET['skipped']) ? absint(wp_unslash($_GET['skipped'])) : 0;
-            ?>
-            <div class="notice notice-success">
-                <p>
-                    <?php
-                    printf(
-                        esc_html__('Import completed. Added: %1$d. Skipped: %2$d.', 'habit-tracker'),
-                        $imported,
-                        $skipped
-                    );
-                    ?>
-                </p>
-            </div>
-            <?php
-            return;
-        }
-
-        if ($notice_code === 'habit-import-file-too-large') {
-            ?>
-            <div class="notice notice-error">
-                <p>
-                    <?php
-                    printf(
-                        esc_html__('The import file is too large. Maximum allowed size is %s.', 'habit-tracker'),
-                        esc_html(size_format($this->getMaxImportFileSizeBytes()))
-                    );
-                    ?>
-                </p>
-            </div>
-            <?php
-            return;
-        }
-
-        if ($notice_code === 'habit-import-too-many-items') {
-            ?>
-            <div class="notice notice-error">
-                <p>
-                    <?php
-                    printf(
-                        esc_html__('The import file contains too many habits. Maximum allowed items: %d.', 'habit-tracker'),
-                        self::IMPORT_MAX_ITEMS
-                    );
-                    ?>
-                </p>
-            </div>
-            <?php
-            return;
-        }
-
         $notices = [
             'habit-created' => [
                 'class' => 'notice notice-success',
@@ -779,30 +549,6 @@ final class HabitAdminPage
             'habit-delete-blocked' => [
                 'class' => 'notice notice-warning',
                 'text'  => __('This habit is already assigned to users and cannot be deleted.', 'habit-tracker'),
-            ],
-            'habit-import-file-required' => [
-                'class' => 'notice notice-error',
-                'text'  => __('Please select a JSON file to import.', 'habit-tracker'),
-            ],
-            'habit-import-invalid-file' => [
-                'class' => 'notice notice-error',
-                'text'  => __('Invalid file type. Upload a .json file.', 'habit-tracker'),
-            ],
-            'habit-import-empty-file' => [
-                'class' => 'notice notice-error',
-                'text'  => __('The import file is empty or contains no habits.', 'habit-tracker'),
-            ],
-            'habit-import-invalid-json' => [
-                'class' => 'notice notice-error',
-                'text'  => __('Invalid JSON format. Please verify the file structure.', 'habit-tracker'),
-            ],
-            'habit-import-none-created' => [
-                'class' => 'notice notice-warning',
-                'text'  => __('Import finished but no habits were created.', 'habit-tracker'),
-            ],
-            'habit-import-upload-failed' => [
-                'class' => 'notice notice-error',
-                'text'  => __('Could not read uploaded file. Please try again.', 'habit-tracker'),
             ],
         ];
 
@@ -850,43 +596,6 @@ final class HabitAdminPage
         return (string) ($options[$normalized] ?? $options[HabitRules::CATEGORY_LIFE]);
     }
 
-    private function normalizeImportItems(array $decoded): array
-    {
-        if (isset($decoded['habits']) && is_array($decoded['habits'])) {
-            return $decoded['habits'];
-        }
-
-        if ($this->isListArray($decoded)) {
-            return $decoded;
-        }
-
-        if (isset($decoded['name'])) {
-            return [$decoded];
-        }
-
-        return [];
-    }
-
-    private function isListArray(array $items): bool
-    {
-        $expected_key = 0;
-
-        foreach (array_keys($items) as $key) {
-            if ($key !== $expected_key) {
-                return false;
-            }
-
-            $expected_key++;
-        }
-
-        return true;
-    }
-
-    private function getNextSortOrderBase(): int
-    {
-        return $this->habits->getMaxSortOrderForAdmin() + 1;
-    }
-
     private function truncateImportText(string $value, int $max_length): string
     {
         if ($max_length <= 0 || $value === '') {
@@ -899,18 +608,6 @@ final class HabitAdminPage
 
         return substr($value, 0, $max_length);
     }
-
-    private function getMaxImportFileSizeBytes(): int
-    {
-        $wp_max_upload_size = function_exists('wp_max_upload_size') ? (int) wp_max_upload_size() : 0;
-
-        if ($wp_max_upload_size <= 0) {
-            return self::IMPORT_MAX_FILE_SIZE_BYTES;
-        }
-
-        return min(self::IMPORT_MAX_FILE_SIZE_BYTES, $wp_max_upload_size);
-    }
-
     private function getListFiltersFromRequest(): array
     {
         return $this->normalizeListFilters([
