@@ -265,21 +265,24 @@ final class DashboardShortcode
                 <?php if ($month_rows === []) : ?>
                     <p class="habit-tracker-empty-state"><?php esc_html_e('No active habits in your dashboard stack yet.', 'habit-tracker'); ?></p>
                 <?php else : ?>
+                    <?php
+                    $month_dates = isset($context['month_dates']) && is_array($context['month_dates']) ? $context['month_dates'] : [];
+                    $month_date_count = count($month_dates);
+                    $checkins_header_label = esc_html__('Check-ins', 'habit-tracker');
+                    ?>
                     <div class="habit-tracker-month-table-wrap">
                         <table class="habit-tracker-month-table">
                             <thead>
                                 <tr class="habit-tracker-month-table__weeks">
                                     <th class="habit-tracker-month-table__habit-col"><?php esc_html_e('Habits', 'habit-tracker'); ?></th>
-                                    <?php foreach ($context['month_weeks'] as $week) : ?>
-                                        <th colspan="<?php echo esc_attr((string) (int) $week['count']); ?>">
-                                            <?php echo esc_html($week['label']); ?>
-                                        </th>
-                                    <?php endforeach; ?>
+                                    <th colspan="<?php echo esc_attr((string) $month_date_count); ?>">
+                                        <?php echo esc_html($checkins_header_label); ?>
+                                    </th>
                                     <th class="habit-tracker-month-table__progress-col"><?php esc_html_e('Progress', 'habit-tracker'); ?></th>
                                 </tr>
                                 <tr class="habit-tracker-month-table__days">
                                     <th aria-hidden="true"></th>
-                                    <?php foreach ($context['month_dates'] as $month_date) : ?>
+                                    <?php foreach ($month_dates as $month_date) : ?>
                                         <th title="<?php echo esc_attr($month_date); ?>">
                                             <span class="habit-tracker-month-dayhead">
                                                 <span class="habit-tracker-month-dayname"><?php echo esc_html(wp_date('D', strtotime($month_date))); ?></span>
@@ -298,7 +301,7 @@ final class DashboardShortcode
                                     >
                                         <th scope="row" class="habit-tracker-month-habit"><?php echo esc_html($row['name']); ?></th>
 
-                                        <?php foreach ($context['month_dates'] as $month_date) : ?>
+                                        <?php foreach ($month_dates as $month_date) : ?>
                                             <?php
                                             $is_filled = isset($row['day_map'][$month_date]);
                                             $is_today = $month_date === $context['today'];
