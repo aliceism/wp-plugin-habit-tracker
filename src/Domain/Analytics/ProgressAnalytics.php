@@ -230,7 +230,7 @@ final class ProgressAnalytics
             'total_percent' => $total_percent,
             'best_category' => $this->pickBestCategory($active_rows),
             'focus_category' => $this->pickFocusCategory($active_rows),
-            'longest_streak_category' => $this->pickLongestStreakCategory($active_rows),
+            'weekly_leader_category' => $this->pickWeeklyLeaderCategory($active_rows),
             'best_habit' => $this->pickBestHabit($habit_rows),
             'focus_habit' => $this->pickFocusHabit($habit_rows),
             'weekly_leader_habit' => $this->pickWeeklyLeaderHabit($habit_rows),
@@ -424,21 +424,27 @@ final class ProgressAnalytics
         return $rows[0] ?? null;
     }
 
-    private function pickLongestStreakCategory(array $rows): ?array
+    private function pickWeeklyLeaderCategory(array $rows): ?array
     {
         if ($rows === []) {
             return null;
         }
 
-        usort($rows, static function (array $left, array $right): int {
-            if ((int) $left['streak_days'] === (int) $right['streak_days']) {
+        $sorted = $rows;
+
+        usort($sorted, static function (array $left, array $right): int {
+            if ((int) $left['week_percent'] === (int) $right['week_percent']) {
+                if ((int) $left['month_percent'] === (int) $right['month_percent']) {
+                    return strcmp((string) ($left['label'] ?? ''), (string) ($right['label'] ?? ''));
+                }
+
                 return (int) $right['month_percent'] <=> (int) $left['month_percent'];
             }
 
-            return (int) $right['streak_days'] <=> (int) $left['streak_days'];
+            return (int) $right['week_percent'] <=> (int) $left['week_percent'];
         });
 
-        return $rows[0] ?? null;
+        return $sorted[0] ?? null;
     }
 
     private function pickBestHabit(array $rows): ?array
