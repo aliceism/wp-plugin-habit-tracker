@@ -72,7 +72,7 @@ final class WpdbUserHabitRepository
             return 0;
         }
 
-        [$frequency_type, $target_count, $target_days_mask] = $this->resolveCustomFrequencyConfig($data);
+        [$frequency_type, $target_count] = $this->resolveCustomFrequencyConfig($data);
         $category = $this->normalizeCategoryKey((string) ($data['category'] ?? ''));
         $name = $this->truncateTextField((string) ($data['name'] ?? ''), self::MAX_NAME_LENGTH);
         $description = $this->truncateTextField((string) ($data['description'] ?? ''), self::MAX_DESCRIPTION_LENGTH);
@@ -93,7 +93,6 @@ final class WpdbUserHabitRepository
                 'description'        => $description,
                 'frequency_type'     => $frequency_type,
                 'target_count'       => $target_count,
-                'target_days_mask'   => $target_days_mask,
                 'start_date'         => wp_date('Y-m-d'),
                 'position'           => $this->nextPosition($user_id),
                 'is_active'          => 1,
@@ -110,7 +109,6 @@ final class WpdbUserHabitRepository
                 '%s',
                 '%s',
                 '%s',
-                '%d',
                 '%d',
                 '%s',
                 '%d',
@@ -141,7 +139,7 @@ final class WpdbUserHabitRepository
             return 'error';
         }
 
-        [$frequency_type, $target_count, $target_days_mask] = $this->resolveFrequencyConfig($habit, $frequency_override);
+        [$frequency_type, $target_count] = $this->resolveFrequencyConfig($habit, $frequency_override);
         $category = $this->normalizeCategoryKey((string) ($habit->category ?? ''));
         $habit_name = $this->truncateTextField((string) ($habit->name ?? ''), self::MAX_NAME_LENGTH);
         $habit_description = $this->truncateTextField((string) ($habit->description ?? ''), self::MAX_DESCRIPTION_LENGTH);
@@ -166,13 +164,12 @@ final class WpdbUserHabitRepository
                     'description'      => $habit_description,
                     'frequency_type'   => $frequency_type,
                     'target_count'     => $target_count,
-                    'target_days_mask' => $target_days_mask,
                     'is_active'        => 1,
                     'archived_at'      => null,
                     'updated_at'       => current_time('mysql'),
                 ],
                 ['id' => (int) $existing->id],
-                ['%s', '%s', '%s', '%s', '%s', '%d', '%d', '%d', '%s', '%s'],
+                ['%s', '%s', '%s', '%s', '%s', '%d', '%d', '%s', '%s'],
                 ['%d']
             );
 
@@ -191,7 +188,6 @@ final class WpdbUserHabitRepository
                 'description'        => $habit_description,
                 'frequency_type'     => $frequency_type,
                 'target_count'       => $target_count,
-                'target_days_mask'   => $target_days_mask,
                 'start_date'         => wp_date('Y-m-d'),
                 'position'           => $this->nextPosition($user_id),
                 'is_active'          => 1,
@@ -208,7 +204,6 @@ final class WpdbUserHabitRepository
                 '%s',
                 '%s',
                 '%s',
-                '%d',
                 '%d',
                 '%s',
                 '%d',
@@ -233,14 +228,12 @@ final class WpdbUserHabitRepository
             return [
                 HabitRules::FREQUENCY_WEEKLY,
                 $target_per_week,
-                HabitRules::DEFAULT_TARGET_DAYS_MASK,
             ];
         }
 
         return [
             HabitRules::FREQUENCY_DAILY,
             HabitRules::DEFAULT_TARGET_COUNT,
-            HabitRules::DEFAULT_TARGET_DAYS_MASK,
         ];
     }
 
@@ -248,7 +241,6 @@ final class WpdbUserHabitRepository
     {
         $frequency_type = $this->normalizeFrequencyType((string) ($habit->default_frequency_type ?? HabitRules::FREQUENCY_DAILY));
         $target_count = $this->normalizeTargetCount((int) ($habit->default_target_count ?? HabitRules::DEFAULT_TARGET_COUNT));
-        $target_days_mask = $this->normalizeTargetDaysMask((int) ($habit->default_target_days_mask ?? HabitRules::DEFAULT_TARGET_DAYS_MASK));
         $target_per_week = isset($frequency_override['target_per_week'])
             ? HabitRules::normalizeTargetPerWeek((int) $frequency_override['target_per_week'])
             : 0;
@@ -256,10 +248,9 @@ final class WpdbUserHabitRepository
         if ($target_per_week > 0) {
             $frequency_type = HabitRules::FREQUENCY_WEEKLY;
             $target_count = $target_per_week;
-            $target_days_mask = HabitRules::DEFAULT_TARGET_DAYS_MASK;
         }
 
-        return [$frequency_type, $target_count, $target_days_mask];
+        return [$frequency_type, $target_count];
     }
 
     public function archiveActiveByIdForUser(int $user_id, int $user_habit_id): string
@@ -308,7 +299,7 @@ final class WpdbUserHabitRepository
             return 'name-required';
         }
 
-        [$frequency_type, $target_count, $target_days_mask] = $this->resolveCustomFrequencyConfig($data);
+        [$frequency_type, $target_count] = $this->resolveCustomFrequencyConfig($data);
         $category = $this->normalizeCategoryKey((string) ($data['category'] ?? ''));
         $description = $this->truncateTextField((string) ($data['description'] ?? ''), self::MAX_DESCRIPTION_LENGTH);
         $description = sanitize_textarea_field($description);
@@ -321,7 +312,6 @@ final class WpdbUserHabitRepository
                 'description'      => $description,
                 'frequency_type'   => $frequency_type,
                 'target_count'     => $target_count,
-                'target_days_mask' => $target_days_mask,
                 'updated_at'       => current_time('mysql'),
             ],
             [
@@ -330,7 +320,7 @@ final class WpdbUserHabitRepository
                 'source_type' => 'custom',
                 'is_active' => 1,
             ],
-            ['%s', '%s', '%s', '%s', '%d', '%d', '%s'],
+            ['%s', '%s', '%s', '%s', '%d', '%s'],
             ['%d', '%d', '%s', '%d']
         );
 
@@ -372,7 +362,6 @@ final class WpdbUserHabitRepository
             [
                 'frequency_type' => HabitRules::FREQUENCY_WEEKLY,
                 'target_count' => $normalized_target_per_week,
-                'target_days_mask' => HabitRules::DEFAULT_TARGET_DAYS_MASK,
                 'updated_at' => current_time('mysql'),
             ],
             [
@@ -381,7 +370,7 @@ final class WpdbUserHabitRepository
                 'source_type' => 'habit',
                 'is_active' => 1,
             ],
-            ['%s', '%d', '%d', '%s'],
+            ['%s', '%d', '%s'],
             ['%d', '%d', '%s', '%d']
         );
 
@@ -436,11 +425,6 @@ final class WpdbUserHabitRepository
     private function normalizeTargetCount(int $target_count): int
     {
         return HabitRules::normalizeTargetCount($target_count);
-    }
-
-    private function normalizeTargetDaysMask(int $target_days_mask): int
-    {
-        return HabitRules::normalizeTargetDaysMask($target_days_mask);
     }
 
     private function normalizeCategoryKey(string $category): string

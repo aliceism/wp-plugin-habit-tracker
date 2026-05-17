@@ -398,7 +398,6 @@ final class HabitAdminPage
             'description'              => $description,
             'default_frequency_type'   => HabitRules::FREQUENCY_DAILY,
             'default_target_count'     => HabitRules::DEFAULT_TARGET_COUNT,
-            'default_target_days_mask' => HabitRules::DEFAULT_TARGET_DAYS_MASK,
             'is_active'                => $is_active,
             'sort_order'               => $sort_order,
         ];

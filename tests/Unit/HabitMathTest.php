@@ -15,11 +15,10 @@ final class HabitMathTest
         $tests = [
             'testDateSetStreakKeepsYesterdayStreakUntilTodayIsChecked',
             'testDateSetStreakResetsWhenYesterdayIsMissed',
-            'testDailyHabitStreakSupportsEnabledDayGrace',
-            'testDailyHabitStreakSkipsDisabledDaysFromMask',
+            'testDailyHabitStreakSupportsGraceUntilTodayIsChecked',
             'testWeeklyHabitStreakKeepsPreviousRunWhenCurrentWeekNotComplete',
             'testWeeklyHabitStreakIncludesCurrentWeekWhenTargetIsReached',
-            'testDailyTargetForPeriodWithWeekdayMask',
+            'testDailyTargetForPeriodCountsEveryElapsedDay',
             'testWeeklyTargetForPeriodCountsDistinctEligibleWeeks',
             'testWeeklyTargetForPeriodCapsByAvailableDaysInPartialWeeks',
             'testDateRangeIsStableAcrossDstChange',
@@ -70,34 +69,16 @@ final class HabitMathTest
         self::assertSame(0, $actual, 'Expected streak reset when previous day has no completion.');
     }
 
-    private static function testDailyHabitStreakSupportsEnabledDayGrace(): void
+    private static function testDailyHabitStreakSupportsGraceUntilTodayIsChecked(): void
     {
         $habit_history = [
             '2026-03-23' => true,
             '2026-03-24' => true,
         ];
 
-        $actual = HabitMath::calculateDailyHabitStreak($habit_history, '2026-03-25', 127, 30);
+        $actual = HabitMath::calculateDailyHabitStreak($habit_history, '2026-03-25', 30);
 
         self::assertSame(2, $actual, 'Expected daily streak grace on enabled current day.');
-    }
-
-    private static function testDailyHabitStreakSkipsDisabledDaysFromMask(): void
-    {
-        $mask_monday_wednesday_friday = 2 + 8 + 32;
-        $habit_history = [
-            '2026-03-20' => true, // Friday
-            '2026-03-23' => true, // Monday
-        ];
-
-        $actual = HabitMath::calculateDailyHabitStreak(
-            $habit_history,
-            '2026-03-24', // Tuesday (disabled)
-            $mask_monday_wednesday_friday,
-            30
-        );
-
-        self::assertSame(2, $actual, 'Expected disabled days to not break daily streak chain.');
     }
 
     private static function testWeeklyHabitStreakKeepsPreviousRunWhenCurrentWeekNotComplete(): void
@@ -112,7 +93,7 @@ final class HabitMathTest
             '2026-03-11' => true, // two weeks ago: 3 completions
         ];
 
-        $actual = HabitMath::calculateWeeklyHabitStreak($habit_history, '2026-03-25', 3, 127, 60);
+        $actual = HabitMath::calculateWeeklyHabitStreak($habit_history, '2026-03-25', 3, 60);
 
         self::assertSame(2, $actual, 'Expected weekly streak grace until the current week target is reached.');
     }
@@ -131,24 +112,21 @@ final class HabitMathTest
             '2026-03-11' => true,
         ];
 
-        $actual = HabitMath::calculateWeeklyHabitStreak($habit_history, '2026-03-26', 3, 127, 60);
+        $actual = HabitMath::calculateWeeklyHabitStreak($habit_history, '2026-03-26', 3, 60);
 
         self::assertSame(3, $actual, 'Expected current week to count when weekly target is met.');
     }
 
-    private static function testDailyTargetForPeriodWithWeekdayMask(): void
+    private static function testDailyTargetForPeriodCountsEveryElapsedDay(): void
     {
-        $mask_weekdays = 2 + 4 + 8 + 16 + 32;
-
         $actual = HabitMath::calculateTargetForPeriod(
             HabitMath::FREQUENCY_DAILY,
             1,
-            $mask_weekdays,
             '2026-03-23',
             '2026-03-29'
         );
 
-        self::assertSame(5, $actual, 'Expected five weekday targets in a Mon-Sun range.');
+        self::assertSame(7, $actual, 'Expected daily targets for each elapsed day in range.');
     }
 
     private static function testWeeklyTargetForPeriodCountsDistinctEligibleWeeks(): void
@@ -156,7 +134,6 @@ final class HabitMathTest
         $actual = HabitMath::calculateTargetForPeriod(
             HabitMath::FREQUENCY_WEEKLY,
             3,
-            127,
             '2026-03-23',
             '2026-04-05'
         );
@@ -169,7 +146,6 @@ final class HabitMathTest
         $actual = HabitMath::calculateTargetForPeriod(
             HabitMath::FREQUENCY_WEEKLY,
             7,
-            127,
             '2026-04-01',
             '2026-04-30'
         );

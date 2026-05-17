@@ -19,11 +19,8 @@ final class HabitRules
 
     public const TARGET_COUNT_MIN = 1;
     public const TARGET_COUNT_MAX = 7;
-    public const TARGET_DAYS_MASK_MIN = 0;
-    public const TARGET_DAYS_MASK_MAX = 127;
 
     public const DEFAULT_TARGET_COUNT = 1;
-    public const DEFAULT_TARGET_DAYS_MASK = 127;
     public const DEFAULT_TARGET_PER_WEEK = 7;
 
     public const HISTORY_DAYS_DASHBOARD = 30;
@@ -90,11 +87,6 @@ final class HabitRules
     public static function normalizeTargetCount(int $target_count): int
     {
         return max(self::TARGET_COUNT_MIN, min(self::TARGET_COUNT_MAX, $target_count));
-    }
-
-    public static function normalizeTargetDaysMask(int $target_days_mask): int
-    {
-        return max(self::TARGET_DAYS_MASK_MIN, min(self::TARGET_DAYS_MASK_MAX, $target_days_mask));
     }
 
     public static function normalizeTargetPerWeek(int $target_per_week): int

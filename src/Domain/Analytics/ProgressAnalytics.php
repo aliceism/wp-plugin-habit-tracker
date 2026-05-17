@@ -125,7 +125,6 @@ final class ProgressAnalytics
                 $habit_start = $this->resolveHabitStartDate($habit, $month_start);
                 $frequency_type = $this->normalizeFrequencyType((string) ($habit->frequency_type ?? HabitRules::FREQUENCY_DAILY));
                 $target_count = $this->normalizeTargetCount((int) ($habit->target_count ?? HabitRules::DEFAULT_TARGET_COUNT));
-                $target_days_mask = $this->normalizeTargetDaysMask((int) ($habit->target_days_mask ?? HabitRules::DEFAULT_TARGET_DAYS_MASK));
                 $week_tracking_start = $habit_start > $week_start ? $habit_start : $week_start;
                 $month_tracking_start = $habit_start > $month_start ? $habit_start : $month_start;
                 $habit_week_map = isset($week_map[$habit_id]) && is_array($week_map[$habit_id]) ? $week_map[$habit_id] : [];
@@ -144,7 +143,6 @@ final class ProgressAnalytics
                     $target_week += $this->calculateTargetForPeriod(
                         $frequency_type,
                         $target_count,
-                        $target_days_mask,
                         $week_tracking_start,
                         $today
                     );
@@ -154,7 +152,6 @@ final class ProgressAnalytics
                     $target_month += $this->calculateTargetForPeriod(
                         $frequency_type,
                         $target_count,
-                        $target_days_mask,
                         $month_tracking_start,
                         $today
                     );
@@ -271,12 +268,6 @@ final class ProgressAnalytics
                     continue;
                 }
 
-                $target_days_mask = $this->normalizeTargetDaysMask((int) ($habit->target_days_mask ?? HabitRules::DEFAULT_TARGET_DAYS_MASK));
-
-                if (! $this->isDateEnabledByMask($date_key, $target_days_mask)) {
-                    continue;
-                }
-
                 $active++;
 
                 if (
@@ -330,7 +321,6 @@ final class ProgressAnalytics
             $month_tracking_start = $habit_start > $month_start ? $habit_start : $month_start;
             $frequency_type = $this->normalizeFrequencyType((string) ($habit->frequency_type ?? HabitRules::FREQUENCY_DAILY));
             $target_count = $this->normalizeTargetCount((int) ($habit->target_count ?? HabitRules::DEFAULT_TARGET_COUNT));
-            $target_days_mask = $this->normalizeTargetDaysMask((int) ($habit->target_days_mask ?? HabitRules::DEFAULT_TARGET_DAYS_MASK));
             $habit_week_map = isset($week_map[$habit_id]) && is_array($week_map[$habit_id]) ? $week_map[$habit_id] : [];
             $habit_month_map = isset($month_map[$habit_id]) && is_array($month_map[$habit_id]) ? $month_map[$habit_id] : [];
             $filtered_week = $this->filterDateMapForRange($habit_week_map, $week_tracking_start, $today);
@@ -341,7 +331,6 @@ final class ProgressAnalytics
                 ? $this->calculateTargetForPeriod(
                     $frequency_type,
                     $target_count,
-                    $target_days_mask,
                     $week_tracking_start,
                     $today
                 )
@@ -350,7 +339,6 @@ final class ProgressAnalytics
                 ? $this->calculateTargetForPeriod(
                     $frequency_type,
                     $target_count,
-                    $target_days_mask,
                     $month_tracking_start,
                     $today
                 )
@@ -558,14 +546,12 @@ final class ProgressAnalytics
     private function calculateTargetForPeriod(
         string $frequency_type,
         int $target_count,
-        int $target_days_mask,
         string $start_date,
         string $end_date
     ): int {
         return HabitMath::calculateTargetForPeriod(
             $frequency_type,
             $target_count,
-            $target_days_mask,
             $start_date,
             $end_date
         );
@@ -610,11 +596,6 @@ final class ProgressAnalytics
         return $filtered;
     }
 
-    private function isDateEnabledByMask(string $date, int $target_days_mask): bool
-    {
-        return HabitMath::isDateEnabledByMask($date, $target_days_mask);
-    }
-
     private function normalizeFrequencyType(string $frequency_type): string
     {
         return HabitRules::normalizeFrequencyType($frequency_type);
@@ -623,11 +604,6 @@ final class ProgressAnalytics
     private function normalizeTargetCount(int $target_count): int
     {
         return HabitRules::normalizeTargetCount($target_count);
-    }
-
-    private function normalizeTargetDaysMask(int $target_days_mask): int
-    {
-        return HabitRules::normalizeTargetDaysMask($target_days_mask);
     }
 
     private function clampPercent(int $value): int

@@ -51,7 +51,6 @@ final class HabitMath
     public static function calculateDailyHabitStreak(
         array $habit_history,
         string $today,
-        int $target_days_mask,
         int $history_days
     ): int {
         if ($habit_history === [] || $history_days <= 0) {
@@ -64,8 +63,6 @@ final class HabitMath
             return 0;
         }
 
-        $target_days_mask = HabitRules::normalizeTargetDaysMask($target_days_mask);
-
         $date_set = self::normalizeHistoryToDateSet($habit_history);
 
         if ($date_set === []) {
@@ -73,8 +70,7 @@ final class HabitMath
         }
 
         $today_key = $today_date->format('Y-m-d');
-        $is_today_enabled = self::isDateEnabledByMask($today_key, $target_days_mask);
-        $start_offset = ($is_today_enabled && ! isset($date_set[$today_key])) ? 1 : 0;
+        $start_offset = ! isset($date_set[$today_key]) ? 1 : 0;
         $streak = 0;
 
         for ($offset = $start_offset; $offset < ($history_days + $start_offset); $offset++) {
@@ -85,10 +81,6 @@ final class HabitMath
             }
 
             $date_key = $date->format('Y-m-d');
-
-            if (! self::isDateEnabledByMask($date_key, $target_days_mask)) {
-                continue;
-            }
 
             if (! isset($date_set[$date_key])) {
                 break;
@@ -104,7 +96,6 @@ final class HabitMath
         array $habit_history,
         string $today,
         int $target_count,
-        int $target_days_mask,
         int $history_days
     ): int {
         if ($habit_history === [] || $history_days <= 0) {
@@ -118,8 +109,7 @@ final class HabitMath
         }
 
         $target_count = HabitRules::normalizeTargetCount($target_count);
-        $target_days_mask = HabitRules::normalizeTargetDaysMask($target_days_mask);
-        $weekly_counts = self::buildWeeklyCompletionCounts($habit_history, $target_days_mask);
+        $weekly_counts = self::buildWeeklyCompletionCounts($habit_history);
 
         if ($weekly_counts === []) {
             return 0;
@@ -154,12 +144,10 @@ final class HabitMath
     public static function calculateTargetForPeriod(
         string $frequency_type,
         int $target_count,
-        int $target_days_mask,
         string $start_date,
         string $end_date
     ): int {
         $target_count = HabitRules::normalizeTargetCount($target_count);
-        $target_days_mask = HabitRules::normalizeTargetDaysMask($target_days_mask);
         $period_dates = self::buildDateRange($start_date, $end_date);
 
         if ($period_dates === []) {
@@ -170,10 +158,6 @@ final class HabitMath
             $weeks = [];
 
             foreach ($period_dates as $period_date) {
-                if (! self::isDateEnabledByMask($period_date, $target_days_mask)) {
-                    continue;
-                }
-
                 $date = self::parseDate($period_date);
 
                 if (! $date instanceof \DateTimeImmutable) {
@@ -198,15 +182,7 @@ final class HabitMath
             return $total;
         }
 
-        $eligible_days = 0;
-
-        foreach ($period_dates as $period_date) {
-            if (self::isDateEnabledByMask($period_date, $target_days_mask)) {
-                $eligible_days++;
-            }
-        }
-
-        return $eligible_days * $target_count;
+        return count($period_dates) * $target_count;
     }
 
     public static function buildDateRange(string $start_date, string $end_date): array
@@ -235,30 +211,7 @@ final class HabitMath
         return $dates;
     }
 
-    public static function isDateEnabledByMask(string $date, int $target_days_mask): bool
-    {
-        $target_days_mask = HabitRules::normalizeTargetDaysMask($target_days_mask);
-
-        if (
-            $target_days_mask <= HabitRules::TARGET_DAYS_MASK_MIN ||
-            $target_days_mask >= HabitRules::TARGET_DAYS_MASK_MAX
-        ) {
-            return true;
-        }
-
-        $date_object = self::parseDate($date);
-
-        if (! $date_object instanceof \DateTimeImmutable) {
-            return true;
-        }
-
-        $weekday = (int) $date_object->format('w');
-        $weekday_bit = 1 << $weekday;
-
-        return ($target_days_mask & $weekday_bit) !== 0;
-    }
-
-    private static function buildWeeklyCompletionCounts(array $habit_history, int $target_days_mask): array
+    private static function buildWeeklyCompletionCounts(array $habit_history): array
     {
         $counts = [];
 
@@ -266,7 +219,7 @@ final class HabitMath
             unset($is_checked);
             $date_key = self::normalizeDateKey((string) $date);
 
-            if ($date_key === null || ! self::isDateEnabledByMask($date_key, $target_days_mask)) {
+            if ($date_key === null) {
                 continue;
             }
 

@@ -249,7 +249,6 @@ final class DashboardAnalytics
             $tracking_start = $habit_start_date > $month_start ? $habit_start_date : $month_start;
             $frequency_type = $this->normalizeFrequencyType((string) ($habit->frequency_type ?? HabitRules::FREQUENCY_DAILY));
             $target_count = $this->normalizeTargetCount((int) ($habit->target_count ?? HabitRules::DEFAULT_TARGET_COUNT));
-            $target_days_mask = $this->normalizeTargetDaysMask((int) ($habit->target_days_mask ?? HabitRules::DEFAULT_TARGET_DAYS_MASK));
             $filtered_month_map = $this->filterDateMapForRange($habit_month_map, $tracking_start, $month_end);
             $filtered_history_map = $this->filterDateMapForRange($habit_history, $habit_start_date, $today);
             $completed = 0;
@@ -265,7 +264,6 @@ final class DashboardAnalytics
             $target_total = $this->calculateTargetForPeriod(
                 $frequency_type,
                 $target_count,
-                $target_days_mask,
                 $tracking_start,
                 $month_end
             );
@@ -286,8 +284,7 @@ final class DashboardAnalytics
                     $filtered_history_map,
                     $today,
                     $frequency_type,
-                    $target_count,
-                    $target_days_mask
+                    $target_count
                 ),
                 'streak_unit' => $frequency_type === HabitRules::FREQUENCY_WEEKLY ? 'week' : 'day',
             ];
@@ -340,8 +337,7 @@ final class DashboardAnalytics
         array $habit_history,
         string $today,
         string $frequency_type,
-        int $target_count,
-        int $target_days_mask
+        int $target_count
     ): int {
         if ($habit_history === []) {
             return 0;
@@ -351,23 +347,20 @@ final class DashboardAnalytics
             return $this->calculateWeeklyHabitStreakFromHistory(
                 $habit_history,
                 $today,
-                $target_count,
-                $target_days_mask
+                $target_count
             );
         }
 
-        return $this->calculateDailyHabitStreakFromHistory($habit_history, $today, $target_days_mask);
+        return $this->calculateDailyHabitStreakFromHistory($habit_history, $today);
     }
 
     private function calculateDailyHabitStreakFromHistory(
         array $habit_history,
-        string $today,
-        int $target_days_mask
+        string $today
     ): int {
         return HabitMath::calculateDailyHabitStreak(
             $habit_history,
             $today,
-            $target_days_mask,
             HabitRules::HISTORY_DAYS_DASHBOARD
         );
     }
@@ -375,14 +368,12 @@ final class DashboardAnalytics
     private function calculateWeeklyHabitStreakFromHistory(
         array $habit_history,
         string $today,
-        int $target_count,
-        int $target_days_mask
+        int $target_count
     ): int {
         return HabitMath::calculateWeeklyHabitStreak(
             $habit_history,
             $today,
             $target_count,
-            $target_days_mask,
             HabitRules::HISTORY_DAYS_DASHBOARD
         );
     }
@@ -390,14 +381,12 @@ final class DashboardAnalytics
     private function calculateTargetForPeriod(
         string $frequency_type,
         int $target_count,
-        int $target_days_mask,
         string $start_date,
         string $end_date
     ): int {
         return HabitMath::calculateTargetForPeriod(
             $frequency_type,
             $target_count,
-            $target_days_mask,
             $start_date,
             $end_date
         );
@@ -445,11 +434,6 @@ final class DashboardAnalytics
     private function normalizeTargetCount(int $target_count): int
     {
         return HabitRules::normalizeTargetCount($target_count);
-    }
-
-    private function normalizeTargetDaysMask(int $target_days_mask): int
-    {
-        return HabitRules::normalizeTargetDaysMask($target_days_mask);
     }
 
     private function countCompletedFromHistoryMap(array $history_map): int
