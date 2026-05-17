@@ -88,7 +88,7 @@ final class ProgressShortcode
         $this->enqueueAssets();
 
         if (! is_user_logged_in()) {
-            return $this->renderLoggedOutInline();
+            return $this->renderLoggedOut();
         }
 
         $context = $this->buildContext();
@@ -101,7 +101,7 @@ final class ProgressShortcode
         $this->enqueueAssets();
 
         if (! is_user_logged_in()) {
-            return $this->renderLoggedOutInline();
+            return $this->renderLoggedOut();
         }
 
         $context = $this->buildContext();
@@ -134,26 +134,6 @@ final class ProgressShortcode
             esc_html__('Progress Access', 'habit-tracker'),
             esc_html__('Log In To Review Progress', 'habit-tracker'),
             esc_html__('You need an account to review category trends, streaks, and completion metrics.', 'habit-tracker'),
-            esc_url($login_url),
-            esc_html__('Login', 'habit-tracker')
-        );
-    }
-
-    private function renderLoggedOutInline(): string
-    {
-        $login_url = wp_login_url($this->getCurrentUrl());
-
-        if (function_exists('habitlab_get_page_url_by_slug')) {
-            $theme_login_url = habitlab_get_page_url_by_slug('login');
-
-            if (is_string($theme_login_url) && $theme_login_url !== '') {
-                $login_url = $theme_login_url;
-            }
-        }
-
-        return sprintf(
-            '<p>%s <a href="%s">%s</a></p>',
-            esc_html__('Log in to review your progress analytics.', 'habit-tracker'),
             esc_url($login_url),
             esc_html__('Login', 'habit-tracker')
         );
