@@ -610,17 +610,6 @@ final class DashboardShortcode
         );
     }
 
-    private function renderNotice(): void
-    {
-        $notice_html = $this->renderNoticeHtml();
-
-        if ($notice_html === '') {
-            return;
-        }
-
-        echo $notice_html;
-    }
-
     private function renderNoticeHtml(): string
     {
         $notice = isset($_GET[self::NOTICE_QUERY_KEY])
