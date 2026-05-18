@@ -386,6 +386,10 @@ final class ProgressAnalytics
 
         usort($rows, static function (array $left, array $right): int {
             if ((int) $left['month_percent'] === (int) $right['month_percent']) {
+                if ((int) $left['completed_month'] === (int) $right['completed_month']) {
+                    return strcmp((string) ($left['label'] ?? ''), (string) ($right['label'] ?? ''));
+                }
+
                 return (int) $right['completed_month'] <=> (int) $left['completed_month'];
             }
 
@@ -403,6 +407,10 @@ final class ProgressAnalytics
 
         usort($rows, static function (array $left, array $right): int {
             if ((int) $left['month_percent'] === (int) $right['month_percent']) {
+                if ((int) $left['completed_month'] === (int) $right['completed_month']) {
+                    return strcmp((string) ($left['label'] ?? ''), (string) ($right['label'] ?? ''));
+                }
+
                 return (int) $left['completed_month'] <=> (int) $right['completed_month'];
             }
 
