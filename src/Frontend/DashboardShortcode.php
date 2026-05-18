@@ -137,7 +137,7 @@ final class DashboardShortcode
         $this->enqueueAssets();
 
         if (! is_user_logged_in()) {
-            return $this->renderLoggedOutInline();
+            return $this->renderLoggedOut();
         }
 
         $context = $this->getContext();
@@ -150,7 +150,7 @@ final class DashboardShortcode
         $this->enqueueAssets();
 
         if (! is_user_logged_in()) {
-            return $this->renderLoggedOutInline();
+            return $this->renderLoggedOut();
         }
 
         $context = $this->getContext();
@@ -201,26 +201,6 @@ final class DashboardShortcode
             esc_html__('Dashboard Access', 'habit-tracker'),
             esc_html__('Log In To Track Your Habits', 'habit-tracker'),
             esc_html__('You need an account to check habits and view your daily dashboard.', 'habit-tracker'),
-            esc_url($login_url),
-            esc_html__('Login', 'habit-tracker')
-        );
-    }
-
-    private function renderLoggedOutInline(): string
-    {
-        $login_url = wp_login_url($this->navigation->getCurrentUrl());
-
-        if (function_exists('habitlab_get_page_url_by_slug')) {
-            $theme_login_url = habitlab_get_page_url_by_slug('login');
-
-            if (is_string($theme_login_url) && $theme_login_url !== '') {
-                $login_url = $theme_login_url;
-            }
-        }
-
-        return sprintf(
-            '<p>%s <a href="%s">%s</a></p>',
-            esc_html__('Log in to access your habit dashboard.', 'habit-tracker'),
             esc_url($login_url),
             esc_html__('Login', 'habit-tracker')
         );
