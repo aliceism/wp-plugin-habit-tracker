@@ -247,8 +247,10 @@ final class DashboardAnalytics
                 : [];
             $habit_start_date = $this->resolveHabitStartDate($habit, $month_start);
             $tracking_start = $habit_start_date > $month_start ? $habit_start_date : $month_start;
-            $frequency_type = $this->normalizeFrequencyType((string) ($habit->frequency_type ?? HabitRules::FREQUENCY_DAILY));
-            $target_count = $this->normalizeTargetCount((int) ($habit->target_count ?? HabitRules::DEFAULT_TARGET_COUNT));
+            [$frequency_type, $target_count] = HabitRules::normalizeFrequencyConfig(
+                (string) ($habit->frequency_type ?? HabitRules::FREQUENCY_DAILY),
+                (int) ($habit->target_count ?? HabitRules::DEFAULT_TARGET_COUNT)
+            );
             $filtered_month_map = $this->filterDateMapForRange($habit_month_map, $tracking_start, $month_end);
             $filtered_history_map = $this->filterDateMapForRange($habit_history, $habit_start_date, $today);
             $completed = 0;
@@ -269,6 +271,12 @@ final class DashboardAnalytics
             );
             $progress_percent = $target_total > 0 ? (int) round(($completed / $target_total) * 100) : 0;
             $progress_percent = max(0, min(100, $progress_percent));
+            $streak = $this->calculateHabitStreakFromHistory(
+                $filtered_history_map,
+                $today,
+                $frequency_type,
+                $target_count
+            );
 
             $rows[] = [
                 'id' => $habit_id,
@@ -280,12 +288,7 @@ final class DashboardAnalytics
                 'day_map' => $filtered_month_map,
                 'completed' => $completed,
                 'progress_percent' => $progress_percent,
-                'streak' => $this->calculateHabitStreakFromHistory(
-                    $filtered_history_map,
-                    $today,
-                    $frequency_type,
-                    $target_count
-                ),
+                'streak' => $streak,
                 'streak_unit' => $frequency_type === HabitRules::FREQUENCY_WEEKLY ? 'week' : 'day',
             ];
         }
@@ -424,16 +427,6 @@ final class DashboardAnalytics
         }
 
         return $filtered;
-    }
-
-    private function normalizeFrequencyType(string $frequency_type): string
-    {
-        return HabitRules::normalizeFrequencyType($frequency_type);
-    }
-
-    private function normalizeTargetCount(int $target_count): int
-    {
-        return HabitRules::normalizeTargetCount($target_count);
     }
 
     private function countCompletedFromHistoryMap(array $history_map): int

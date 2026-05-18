@@ -224,30 +224,31 @@ final class WpdbUserHabitRepository
             ? HabitRules::normalizeTargetPerWeek((int) $data['target_per_week'])
             : HabitRules::DEFAULT_TARGET_PER_WEEK;
 
-        if ($target_per_week > 0) {
+        if ($target_per_week <= 0) {
             return [
-                HabitRules::FREQUENCY_WEEKLY,
-                $target_per_week,
+                HabitRules::FREQUENCY_DAILY,
+                HabitRules::DEFAULT_TARGET_COUNT,
             ];
         }
 
-        return [
-            HabitRules::FREQUENCY_DAILY,
-            HabitRules::DEFAULT_TARGET_COUNT,
-        ];
+        return HabitRules::normalizeFrequencyConfig(HabitRules::FREQUENCY_WEEKLY, $target_per_week);
     }
 
     private function resolveFrequencyConfig(object $habit, array $frequency_override): array
     {
-        $frequency_type = $this->normalizeFrequencyType((string) ($habit->default_frequency_type ?? HabitRules::FREQUENCY_DAILY));
-        $target_count = $this->normalizeTargetCount((int) ($habit->default_target_count ?? HabitRules::DEFAULT_TARGET_COUNT));
+        [$frequency_type, $target_count] = HabitRules::normalizeFrequencyConfig(
+            (string) ($habit->default_frequency_type ?? HabitRules::FREQUENCY_DAILY),
+            (int) ($habit->default_target_count ?? HabitRules::DEFAULT_TARGET_COUNT)
+        );
         $target_per_week = isset($frequency_override['target_per_week'])
             ? HabitRules::normalizeTargetPerWeek((int) $frequency_override['target_per_week'])
             : 0;
 
         if ($target_per_week > 0) {
-            $frequency_type = HabitRules::FREQUENCY_WEEKLY;
-            $target_count = $target_per_week;
+            [$frequency_type, $target_count] = HabitRules::normalizeFrequencyConfig(
+                HabitRules::FREQUENCY_WEEKLY,
+                $target_per_week
+            );
         }
 
         return [$frequency_type, $target_count];
@@ -357,11 +358,16 @@ final class WpdbUserHabitRepository
             return 'not-found';
         }
 
+        [$frequency_type, $target_count] = HabitRules::normalizeFrequencyConfig(
+            HabitRules::FREQUENCY_WEEKLY,
+            $normalized_target_per_week
+        );
+
         $updated = $this->wpdb->update(
             $this->user_habits_table,
             [
-                'frequency_type' => HabitRules::FREQUENCY_WEEKLY,
-                'target_count' => $normalized_target_per_week,
+                'frequency_type' => $frequency_type,
+                'target_count' => $target_count,
                 'updated_at' => current_time('mysql'),
             ],
             [
@@ -415,16 +421,6 @@ final class WpdbUserHabitRepository
         $max_position = (int) $this->wpdb->get_var($sql);
 
         return $max_position + 1;
-    }
-
-    private function normalizeFrequencyType(string $frequency_type): string
-    {
-        return HabitRules::normalizeFrequencyType($frequency_type);
-    }
-
-    private function normalizeTargetCount(int $target_count): int
-    {
-        return HabitRules::normalizeTargetCount($target_count);
     }
 
     private function normalizeCategoryKey(string $category): string

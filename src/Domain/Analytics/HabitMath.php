@@ -109,6 +109,11 @@ final class HabitMath
         }
 
         $target_count = HabitRules::normalizeTargetCount($target_count);
+
+        if ($target_count === HabitRules::TARGET_COUNT_MAX) {
+            return self::calculateDailyHabitStreak($habit_history, $today, $history_days);
+        }
+
         $weekly_counts = self::buildWeeklyCompletionCounts($habit_history);
 
         if ($weekly_counts === []) {

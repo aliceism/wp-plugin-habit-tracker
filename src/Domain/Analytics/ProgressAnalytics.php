@@ -123,8 +123,10 @@ final class ProgressAnalytics
                 }
 
                 $habit_start = $this->resolveHabitStartDate($habit, $month_start);
-                $frequency_type = $this->normalizeFrequencyType((string) ($habit->frequency_type ?? HabitRules::FREQUENCY_DAILY));
-                $target_count = $this->normalizeTargetCount((int) ($habit->target_count ?? HabitRules::DEFAULT_TARGET_COUNT));
+                [$frequency_type, $target_count] = HabitRules::normalizeFrequencyConfig(
+                    (string) ($habit->frequency_type ?? HabitRules::FREQUENCY_DAILY),
+                    (int) ($habit->target_count ?? HabitRules::DEFAULT_TARGET_COUNT)
+                );
                 $week_tracking_start = $habit_start > $week_start ? $habit_start : $week_start;
                 $month_tracking_start = $habit_start > $month_start ? $habit_start : $month_start;
                 $habit_week_map = isset($week_map[$habit_id]) && is_array($week_map[$habit_id]) ? $week_map[$habit_id] : [];
@@ -319,8 +321,10 @@ final class ProgressAnalytics
             $habit_start = $this->resolveHabitStartDate($habit, $month_start);
             $week_tracking_start = $habit_start > $week_start ? $habit_start : $week_start;
             $month_tracking_start = $habit_start > $month_start ? $habit_start : $month_start;
-            $frequency_type = $this->normalizeFrequencyType((string) ($habit->frequency_type ?? HabitRules::FREQUENCY_DAILY));
-            $target_count = $this->normalizeTargetCount((int) ($habit->target_count ?? HabitRules::DEFAULT_TARGET_COUNT));
+            [$frequency_type, $target_count] = HabitRules::normalizeFrequencyConfig(
+                (string) ($habit->frequency_type ?? HabitRules::FREQUENCY_DAILY),
+                (int) ($habit->target_count ?? HabitRules::DEFAULT_TARGET_COUNT)
+            );
             $habit_week_map = isset($week_map[$habit_id]) && is_array($week_map[$habit_id]) ? $week_map[$habit_id] : [];
             $habit_month_map = isset($month_map[$habit_id]) && is_array($month_map[$habit_id]) ? $month_map[$habit_id] : [];
             $filtered_week = $this->filterDateMapForRange($habit_week_map, $week_tracking_start, $today);
@@ -602,16 +606,6 @@ final class ProgressAnalytics
         }
 
         return $filtered;
-    }
-
-    private function normalizeFrequencyType(string $frequency_type): string
-    {
-        return HabitRules::normalizeFrequencyType($frequency_type);
-    }
-
-    private function normalizeTargetCount(int $target_count): int
-    {
-        return HabitRules::normalizeTargetCount($target_count);
     }
 
     private function clampPercent(int $value): int

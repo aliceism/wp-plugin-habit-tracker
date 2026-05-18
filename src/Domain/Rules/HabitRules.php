@@ -89,6 +89,21 @@ final class HabitRules
         return max(self::TARGET_COUNT_MIN, min(self::TARGET_COUNT_MAX, $target_count));
     }
 
+    public static function normalizeFrequencyConfig(string $frequency_type, int $target_count): array
+    {
+        $normalized_frequency = self::normalizeFrequencyType($frequency_type);
+        $normalized_target_count = self::normalizeTargetCount($target_count);
+
+        if (
+            $normalized_frequency === self::FREQUENCY_WEEKLY &&
+            $normalized_target_count === self::TARGET_COUNT_MAX
+        ) {
+            return [self::FREQUENCY_DAILY, self::DEFAULT_TARGET_COUNT];
+        }
+
+        return [$normalized_frequency, $normalized_target_count];
+    }
+
     public static function normalizeTargetPerWeek(int $target_per_week): int
     {
         if ($target_per_week < self::TARGET_COUNT_MIN || $target_per_week > self::TARGET_COUNT_MAX) {
@@ -113,8 +128,10 @@ final class HabitRules
 
     public static function resolveDefaultTargetPerWeek(string $frequency_type, int $target_count): int
     {
-        $normalized_frequency = self::normalizeFrequencyType($frequency_type);
-        $normalized_target_count = self::normalizeTargetCount($target_count);
+        [$normalized_frequency, $normalized_target_count] = self::normalizeFrequencyConfig(
+            $frequency_type,
+            $target_count
+        );
 
         if ($normalized_frequency === self::FREQUENCY_WEEKLY) {
             return $normalized_target_count;
