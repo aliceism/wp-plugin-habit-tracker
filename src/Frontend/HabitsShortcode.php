@@ -871,17 +871,6 @@ final class HabitsShortcode
         <?php
     }
 
-    private function renderNotice(): void
-    {
-        $notice = $this->getCurrentNoticeKey();
-
-        if ($notice === '') {
-            return;
-        }
-
-        echo $this->renderNoticeHtmlByCode($notice);
-    }
-
     private function getCurrentNoticeKey(): string
     {
         return isset($_GET[self::NOTICE_QUERY_KEY])
