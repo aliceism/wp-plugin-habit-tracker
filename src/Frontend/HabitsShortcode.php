@@ -145,7 +145,7 @@ final class HabitsShortcode
         $this->enqueueAssets();
 
         if (! is_user_logged_in()) {
-            return $this->renderLoggedOutInline();
+            return $this->renderLoggedOut();
         }
 
         $context = $this->getLoggedInContext();
@@ -161,7 +161,7 @@ final class HabitsShortcode
         $this->enqueueAssets();
 
         if (! is_user_logged_in()) {
-            return $this->renderLoggedOutInline();
+            return $this->renderLoggedOut();
         }
 
         $context = $this->getLoggedInContext();
@@ -179,7 +179,7 @@ final class HabitsShortcode
         $this->enqueueAssets();
 
         if (! is_user_logged_in()) {
-            return $this->renderLoggedOutInline();
+            return $this->renderLoggedOut();
         }
 
         $context = $this->getLoggedInContext();
@@ -539,26 +539,6 @@ final class HabitsShortcode
         );
     }
 
-    private function renderLoggedOutInline(): string
-    {
-        $login_url = wp_login_url($this->getCurrentUrl());
-
-        if (function_exists('habitlab_get_page_url_by_slug')) {
-            $theme_login_url = habitlab_get_page_url_by_slug('login');
-
-            if (is_string($theme_login_url) && $theme_login_url !== '') {
-                $login_url = $theme_login_url;
-            }
-        }
-
-        return sprintf(
-            '<p>%s <a href="%s">%s</a></p>',
-            esc_html__('Log in to manage habits for your dashboard.', 'habit-tracker'),
-            esc_url($login_url),
-            esc_html__('Login', 'habit-tracker')
-        );
-    }
-
     private function renderStackSection(array $user_dashboard_habits, ?string $redirect_url = null): void
     {
         $resolved_redirect = is_string($redirect_url) && $redirect_url !== ''
@@ -751,56 +731,7 @@ final class HabitsShortcode
 
                     <p class="habit-tracker-block__intro"><?php esc_html_e('Custom habits are private to your account and appear directly in your dashboard.', 'habit-tracker'); ?></p>
 
-                    <form class="habit-tracker-form" method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
-                        <input type="hidden" name="action" value="<?php echo esc_attr(self::ADD_CUSTOM_ACTION); ?>">
-                        <input type="hidden" name="redirect_to" value="<?php echo esc_url($redirect_url); ?>">
-                        <?php wp_nonce_field(self::ADD_CUSTOM_ACTION); ?>
-
-                        <div class="habit-tracker-field">
-                            <label for="habit-tracker-custom-name"><?php esc_html_e('Name', 'habit-tracker'); ?></label>
-                            <input id="habit-tracker-custom-name" type="text" name="name" required maxlength="191">
-                        </div>
-
-                        <div class="habit-tracker-field">
-                            <label for="habit-tracker-custom-category"><?php esc_html_e('Category', 'habit-tracker'); ?></label>
-                            <select
-                                id="habit-tracker-custom-category"
-                                name="category"
-                                class="habit-tracker-field-select"
-                                required
-                            >
-                                    <?php foreach ($this->categoryOptions() as $category_key => $category_label) : ?>
-                                    <option value="<?php echo esc_attr($category_key); ?>" <?php selected($category_key, HabitRules::CATEGORY_MIND); ?>>
-                                        <?php echo esc_html($category_label); ?>
-                                    </option>
-                                <?php endforeach; ?>
-                            </select>
-                        </div>
-
-                        <div class="habit-tracker-field">
-                            <label for="habit-tracker-custom-description"><?php esc_html_e('Description', 'habit-tracker'); ?></label>
-                            <textarea id="habit-tracker-custom-description" name="description" rows="3"></textarea>
-                        </div>
-
-                        <div class="habit-tracker-field">
-                            <label for="habit-tracker-custom-target-per-week-modal"><?php esc_html_e('Weekly Goal', 'habit-tracker'); ?></label>
-                            <select
-                                id="habit-tracker-custom-target-per-week-modal"
-                                name="target_per_week"
-                                class="habit-tracker-field-select"
-                            >
-                                <?php foreach ($this->targetPerWeekOptions() as $target_option) : ?>
-                                    <option value="<?php echo esc_attr((string) $target_option); ?>" <?php selected($target_option, 7); ?>>
-                                        <?php echo esc_html($this->formatTargetPerWeekLabel($target_option)); ?>
-                                    </option>
-                                <?php endforeach; ?>
-                            </select>
-                        </div>
-
-                        <button type="submit" class="btn btn-primary">
-                            <?php esc_html_e('Add Custom Habit', 'habit-tracker'); ?>
-                        </button>
-                    </form>
+                    <?php $this->renderCustomHabitForm($redirect_url, 'modal'); ?>
                 </div>
             </div>
         </article>
@@ -817,57 +748,70 @@ final class HabitsShortcode
             </div>
             <p class="habit-tracker-block__intro"><?php esc_html_e('Custom habits are private to your account and appear directly in your dashboard.', 'habit-tracker'); ?></p>
 
-            <form class="habit-tracker-form" method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
-                <input type="hidden" name="action" value="<?php echo esc_attr(self::ADD_CUSTOM_ACTION); ?>">
-                <input type="hidden" name="redirect_to" value="<?php echo esc_url($redirect_url); ?>">
-                <?php wp_nonce_field(self::ADD_CUSTOM_ACTION); ?>
-
-                <div class="habit-tracker-field">
-                    <label for="habit-tracker-custom-name"><?php esc_html_e('Name', 'habit-tracker'); ?></label>
-                    <input id="habit-tracker-custom-name" type="text" name="name" required maxlength="191">
-                </div>
-
-                <div class="habit-tracker-field">
-                    <label for="habit-tracker-custom-category"><?php esc_html_e('Category', 'habit-tracker'); ?></label>
-                    <select
-                        id="habit-tracker-custom-category"
-                        name="category"
-                        class="habit-tracker-field-select"
-                        required
-                    >
-                        <?php foreach ($this->categoryOptions() as $category_key => $category_label) : ?>
-                            <option value="<?php echo esc_attr($category_key); ?>" <?php selected($category_key, HabitRules::CATEGORY_MIND); ?>>
-                                <?php echo esc_html($category_label); ?>
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
-
-                <div class="habit-tracker-field">
-                    <label for="habit-tracker-custom-description"><?php esc_html_e('Description', 'habit-tracker'); ?></label>
-                    <textarea id="habit-tracker-custom-description" name="description" rows="3"></textarea>
-                </div>
-
-                <div class="habit-tracker-field">
-                    <label for="habit-tracker-custom-target-per-week"><?php esc_html_e('Weekly Goal', 'habit-tracker'); ?></label>
-                    <select
-                        id="habit-tracker-custom-target-per-week"
-                        name="target_per_week"
-                        class="habit-tracker-field-select"
-                    >
-                        <?php foreach ($this->targetPerWeekOptions() as $target_option) : ?>
-                            <option value="<?php echo esc_attr((string) $target_option); ?>" <?php selected($target_option, 7); ?>>
-                                <?php echo esc_html($this->formatTargetPerWeekLabel($target_option)); ?>
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
-
-                <button type="submit" class="btn btn-primary">
-                    <?php esc_html_e('Add Custom Habit', 'habit-tracker'); ?>
-                </button>
-            </form>
+            <?php $this->renderCustomHabitForm($redirect_url); ?>
         </article>
+        <?php
+    }
+
+    private function renderCustomHabitForm(string $redirect_url, string $id_suffix = ''): void
+    {
+        $normalized_suffix = trim($id_suffix);
+        $suffix = $normalized_suffix === '' ? '' : '-' . $normalized_suffix;
+        $name_field_id = 'habit-tracker-custom-name' . $suffix;
+        $category_field_id = 'habit-tracker-custom-category' . $suffix;
+        $description_field_id = 'habit-tracker-custom-description' . $suffix;
+        $target_field_id = 'habit-tracker-custom-target-per-week' . $suffix;
+        ?>
+        <form class="habit-tracker-form" method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
+            <input type="hidden" name="action" value="<?php echo esc_attr(self::ADD_CUSTOM_ACTION); ?>">
+            <input type="hidden" name="redirect_to" value="<?php echo esc_url($redirect_url); ?>">
+            <?php wp_nonce_field(self::ADD_CUSTOM_ACTION); ?>
+
+            <div class="habit-tracker-field">
+                <label for="<?php echo esc_attr($name_field_id); ?>"><?php esc_html_e('Name', 'habit-tracker'); ?></label>
+                <input id="<?php echo esc_attr($name_field_id); ?>" type="text" name="name" required maxlength="191">
+            </div>
+
+            <div class="habit-tracker-field">
+                <label for="<?php echo esc_attr($category_field_id); ?>"><?php esc_html_e('Category', 'habit-tracker'); ?></label>
+                <select
+                    id="<?php echo esc_attr($category_field_id); ?>"
+                    name="category"
+                    class="habit-tracker-field-select"
+                    required
+                >
+                    <?php foreach ($this->categoryOptions() as $category_key => $category_label) : ?>
+                        <option value="<?php echo esc_attr($category_key); ?>" <?php selected($category_key, HabitRules::CATEGORY_MIND); ?>>
+                            <?php echo esc_html($category_label); ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+
+            <div class="habit-tracker-field">
+                <label for="<?php echo esc_attr($description_field_id); ?>"><?php esc_html_e('Description', 'habit-tracker'); ?></label>
+                <textarea id="<?php echo esc_attr($description_field_id); ?>" name="description" rows="3"></textarea>
+            </div>
+
+            <div class="habit-tracker-field">
+                <label for="<?php echo esc_attr($target_field_id); ?>"><?php esc_html_e('Weekly Goal', 'habit-tracker'); ?></label>
+                <select
+                    id="<?php echo esc_attr($target_field_id); ?>"
+                    name="target_per_week"
+                    class="habit-tracker-field-select"
+                >
+                    <?php foreach ($this->targetPerWeekOptions() as $target_option) : ?>
+                        <option value="<?php echo esc_attr((string) $target_option); ?>" <?php selected($target_option, 7); ?>>
+                            <?php echo esc_html($this->formatTargetPerWeekLabel($target_option)); ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+
+            <button type="submit" class="btn btn-primary">
+                <?php esc_html_e('Add Custom Habit', 'habit-tracker'); ?>
+            </button>
+        </form>
         <?php
     }
 
