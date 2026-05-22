@@ -6,6 +6,7 @@ use HabitTracker\Admin\HabitAdminPage;
 use HabitTracker\Frontend\AuthShortcode;
 use HabitTracker\Frontend\DashboardShortcode;
 use HabitTracker\Frontend\HabitsShortcode;
+use HabitTracker\Frontend\ProfileAccountActions;
 use HabitTracker\Frontend\ProgressShortcode;
 use HabitTracker\Infrastructure\Database\Migrations;
 use HabitTracker\Infrastructure\Persistence\WpdbCheckinRepository;
@@ -35,6 +36,8 @@ final class Plugin
     private ?ProgressShortcode $progress_shortcode = null;
 
     private ?AuthShortcode $auth_shortcode = null;
+
+    private ?ProfileAccountActions $profile_account_actions = null;
 
     public static function instance(): self
     {
@@ -101,7 +104,9 @@ final class Plugin
             if ($this->dashboard_shortcode instanceof DashboardShortcode) {
                 if ($this->progress_shortcode instanceof ProgressShortcode) {
                     if ($this->auth_shortcode instanceof AuthShortcode) {
-                        return;
+                        if ($this->profile_account_actions instanceof ProfileAccountActions) {
+                            return;
+                        }
                     }
                 }
             }
@@ -125,6 +130,11 @@ final class Plugin
         if (! $this->auth_shortcode instanceof AuthShortcode) {
             $this->auth_shortcode = new AuthShortcode();
             $this->auth_shortcode->register();
+        }
+
+        if (! $this->profile_account_actions instanceof ProfileAccountActions) {
+            $this->profile_account_actions = new ProfileAccountActions();
+            $this->profile_account_actions->register();
         }
     }
 }
