@@ -160,11 +160,32 @@ final class ProfileAccountActions
 
     private function getProfileUrl(): string
     {
-        if (function_exists('habitlab_get_profile_url')) {
-            $profile_url = habitlab_get_profile_url();
+        $profile_page = get_page_by_path('profile');
 
-            if (is_string($profile_url) && $profile_url !== '') {
-                return $profile_url;
+        if ($profile_page instanceof \WP_Post) {
+            $profile_permalink = get_permalink($profile_page);
+
+            if (is_string($profile_permalink) && $profile_permalink !== '') {
+                return $profile_permalink;
+            }
+        }
+
+        $profile_template_pages = get_pages([
+            'post_status' => 'publish',
+            'number' => 1,
+            'meta_key' => '_wp_page_template',
+            'meta_value' => 'page-profile.php',
+        ]);
+
+        if (
+            is_array($profile_template_pages) &&
+            isset($profile_template_pages[0]) &&
+            $profile_template_pages[0] instanceof \WP_Post
+        ) {
+            $template_permalink = get_permalink($profile_template_pages[0]);
+
+            if (is_string($template_permalink) && $template_permalink !== '') {
+                return $template_permalink;
             }
         }
 
