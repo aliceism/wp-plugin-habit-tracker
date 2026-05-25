@@ -31,24 +31,26 @@ final class AuthShortcode
             return $this->renderLoggedInState();
         }
 
-        $redirect = $this->getDashboardUrl();
-        $notice = $this->renderNotice();
-        $form = wp_login_form([
-            'echo'           => false,
-            'redirect'       => $redirect,
-            'remember'       => true,
-            'label_username' => __('Email or username', 'habit-tracker'),
-            'label_password' => __('Password', 'habit-tracker'),
-            'label_remember' => __('Remember me', 'habit-tracker'),
-            'label_log_in'   => __('Login', 'habit-tracker'),
-            'id_form'        => 'habit-tracker-login-form',
-            'id_username'    => 'habit-tracker-login-username',
-            'id_password'    => 'habit-tracker-login-password',
-            'id_remember'    => 'habit-tracker-login-remember',
-            'id_submit'      => 'habit-tracker-login-submit',
-        ]);
-
-        return $notice . $form;
+        return $this->renderTemplate(
+            'auth-login',
+            [
+                'notice_html' => $this->renderNotice(),
+                'login_form_html' => wp_login_form([
+                    'echo'           => false,
+                    'redirect'       => $this->getDashboardUrl(),
+                    'remember'       => true,
+                    'label_username' => __('Email or username', 'habit-tracker'),
+                    'label_password' => __('Password', 'habit-tracker'),
+                    'label_remember' => __('Remember me', 'habit-tracker'),
+                    'label_log_in'   => __('Login', 'habit-tracker'),
+                    'id_form'        => 'habit-tracker-login-form',
+                    'id_username'    => 'habit-tracker-login-username',
+                    'id_password'    => 'habit-tracker-login-password',
+                    'id_remember'    => 'habit-tracker-login-remember',
+                    'id_submit'      => 'habit-tracker-login-submit',
+                ]),
+            ]
+        );
     }
 
     public function renderRegister(array $atts = [], ?string $content = null, string $shortcode_tag = ''): string
@@ -59,46 +61,27 @@ final class AuthShortcode
             return $this->renderLoggedInState();
         }
 
-        $notice = $this->renderNotice();
-
         if (! $this->isUserRegistrationEnabled()) {
-            return $notice . sprintf(
-                '<div class="auth-state"><p>%s</p><a class="btn btn-primary" href="%s">%s</a></div>',
-                esc_html__('Registration is currently disabled. Use login if you already have an account.', 'habit-tracker'),
-                esc_url($this->getLoginUrl()),
-                esc_html__('Go to Login', 'habit-tracker')
+            return $this->renderTemplate(
+                'auth-registration-disabled',
+                [
+                    'notice_html' => $this->renderNotice(),
+                    'message' => __('Registration is currently disabled. Use login if you already have an account.', 'habit-tracker'),
+                    'login_url' => $this->getLoginUrl(),
+                    'button_text' => __('Go to Login', 'habit-tracker'),
+                ]
             );
         }
 
-        $action = admin_url('admin-post.php');
-        $redirect = $this->getDashboardUrl();
-
-        ob_start();
-        ?>
-        <?php echo $notice; ?>
-        <form class="habit-tracker-register-form" action="<?php echo esc_url($action); ?>" method="post">
-            <input type="hidden" name="action" value="<?php echo esc_attr(self::REGISTER_ACTION); ?>">
-            <input type="hidden" name="redirect_to" value="<?php echo esc_url($redirect); ?>">
-            <?php wp_nonce_field(self::REGISTER_ACTION); ?>
-            <p>
-                <label for="habit-tracker-register-email"><?php esc_html_e('Email', 'habit-tracker'); ?></label>
-                <input id="habit-tracker-register-email" name="user_email" type="email" required autocomplete="email">
-            </p>
-            <p>
-                <label for="habit-tracker-register-password"><?php esc_html_e('Password', 'habit-tracker'); ?></label>
-                <input id="habit-tracker-register-password" name="user_pass" type="password" required autocomplete="new-password">
-            </p>
-            <p>
-                <label for="habit-tracker-register-password-confirm"><?php esc_html_e('Confirm password', 'habit-tracker'); ?></label>
-                <input id="habit-tracker-register-password-confirm" name="user_pass_confirm" type="password" required autocomplete="new-password">
-            </p>
-            <p>
-                <button type="submit" class="btn btn-primary"><?php esc_html_e('Create account', 'habit-tracker'); ?></button>
-            </p>
-        </form>
-        <?php
-
-        return (string) ob_get_clean();
+        return $this->renderTemplate(
+            'auth-register',
+            [
+                'notice_html' => $this->renderNotice(),
+                'form_action' => admin_url('admin-post.php'),
+                'redirect' => $this->getDashboardUrl(),
+                'register_action' => self::REGISTER_ACTION,
+            ]
+        );
     }
 
     public function handleRegister(): void
@@ -175,11 +158,13 @@ final class AuthShortcode
 
     private function renderLoggedInState(): string
     {
-        return sprintf(
-            '<div class="auth-state auth-state--logged-in"><p>%s</p><a class="btn btn-primary" href="%s">%s</a></div>',
-            esc_html__('You are already logged in. Continue to your dashboard.', 'habit-tracker'),
-            esc_url($this->getDashboardUrl()),
-            esc_html__('Open Dashboard', 'habit-tracker')
+        return $this->renderTemplate(
+            'auth-logged-in',
+            [
+                'message' => __('You are already logged in. Continue to your dashboard.', 'habit-tracker'),
+                'dashboard_url' => $this->getDashboardUrl(),
+                'button_text' => __('Open Dashboard', 'habit-tracker'),
+            ]
         );
     }
 
@@ -295,5 +280,10 @@ final class AuthShortcode
         }
 
         return wp_registration_url();
+    }
+
+    private function renderTemplate(string $template, array $context = []): string
+    {
+        return ThemeTemplate::render($template, $context);
     }
 }

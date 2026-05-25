@@ -84,7 +84,7 @@ final class DashboardShortcode
         $metrics_html = $this->renderMetricsSectionHtml($context['metrics']);
         $panels_html = $this->renderPanelsHtml($context);
 
-        $theme_html = ThemeTemplate::render(
+        return $this->renderTemplate(
             'dashboard',
             [
                 'notice_html' => $notice_html,
@@ -93,21 +93,6 @@ final class DashboardShortcode
                 'context' => $context,
             ]
         );
-
-        if ($theme_html !== '') {
-            return $theme_html;
-        }
-
-        ob_start();
-        ?>
-        <div class="habit-tracker-dashboard">
-            <?php echo $notice_html; ?>
-            <?php echo $metrics_html; ?>
-            <?php echo $panels_html; ?>
-        </div>
-        <?php
-
-        return (string) ob_get_clean();
     }
 
     public function renderNoticeShortcode(array $atts = [], ?string $content = null, string $shortcode_tag = ''): string
@@ -116,19 +101,14 @@ final class DashboardShortcode
         $this->enqueueAssets();
         $notice_html = $this->renderNoticeHtml();
         $context = is_user_logged_in() ? $this->getContext() : [];
-        $theme_html = ThemeTemplate::render(
+
+        return $this->renderTemplate(
             'dashboard-notice',
             [
                 'notice_html' => $notice_html,
                 'context' => $context,
             ]
         );
-
-        if ($theme_html !== '') {
-            return $theme_html;
-        }
-
-        return $notice_html;
     }
 
     public function renderMetricsShortcode(array $atts = [], ?string $content = null, string $shortcode_tag = ''): string
@@ -186,281 +166,51 @@ final class DashboardShortcode
 
     private function renderLoggedOut(): string
     {
-        $login_url = wp_login_url($this->navigation->getCurrentUrl());
-
-        if (function_exists('habitlab_get_page_url_by_slug')) {
-            $theme_login_url = habitlab_get_page_url_by_slug('login');
-
-            if (is_string($theme_login_url) && $theme_login_url !== '') {
-                $login_url = $theme_login_url;
-            }
-        }
-
-        return sprintf(
-            '<section class="habit-tracker-block habit-tracker-logged-out"><p class="app-card__eyebrow">%s</p><h3>%s</h3><p>%s</p><a class="btn btn-primary" href="%s">%s</a></section>',
-            esc_html__('Dashboard Access', 'habit-tracker'),
-            esc_html__('Log In To Track Your Habits', 'habit-tracker'),
-            esc_html__('You need an account to check habits and view your daily dashboard.', 'habit-tracker'),
-            esc_url($login_url),
-            esc_html__('Login', 'habit-tracker')
+        return $this->renderTemplate(
+            'dashboard-logged-out',
+            [
+                'login_url' => $this->resolveLoginUrl(),
+                'kicker' => __('Dashboard Access', 'habit-tracker'),
+                'title' => __('Log In To Track Your Habits', 'habit-tracker'),
+                'description' => __('You need an account to check habits and view your daily dashboard.', 'habit-tracker'),
+                'button_text' => __('Login', 'habit-tracker'),
+            ]
         );
-    }
-
-    private function renderMetricsCards(array $metrics): void
-    {
-        $cards = $this->buildMetricCards($metrics);
-
-        ?>
-        <?php foreach ($cards as $card) : ?>
-            <article class="card app-card app-metric habit-tracker-metric-card habit-tracker-metric-card--<?php echo esc_attr($card['class']); ?>">
-                <div class="habit-tracker-metric-orb" style="--ht-value: <?php echo esc_attr((string) $card['value']); ?>;">
-                    <span><?php echo esc_html((string) (int) $card['value']); ?>%</span>
-                </div>
-                <div class="habit-tracker-metric-content">
-                    <?php if ((string) ($card['label'] ?? '') !== '') : ?>
-                        <p class="app-metric__label"><?php echo esc_html((string) $card['label']); ?></p>
-                    <?php endif; ?>
-                    <h2 class="app-metric__value"><?php echo esc_html((string) $card['stat']); ?></h2>
-                    <p class="app-metric__meta"><?php echo esc_html((string) $card['meta']); ?></p>
-                </div>
-            </article>
-        <?php endforeach; ?>
-        <?php
-    }
-
-    private function renderPanels(array $context): void
-    {
-        $month_rows = $this->buildMonthRowsFromContext($context);
-        $top_habits = $this->buildTopHabits($month_rows);
-        $active_streaks = $this->buildActiveStreaks($month_rows);
-
-        ?>
-        <div class="habit-tracker-dashboard-panels habit-tracker-month-layout">
-            <article class="card app-card habit-tracker-dashboard-panel habit-tracker-month-table-panel">
-                <div class="habit-tracker-dashboard-panel__header">
-                    <p class="app-card__eyebrow"><?php esc_html_e('Check-ins', 'habit-tracker'); ?></p>
-                    <h3><?php esc_html_e('Monthly Habit Grid', 'habit-tracker'); ?></h3>
-                </div>
-
-                <?php if ($month_rows === []) : ?>
-                    <p class="habit-tracker-empty-state"><?php esc_html_e('No active habits in your dashboard stack yet.', 'habit-tracker'); ?></p>
-                <?php else : ?>
-                    <?php
-                    $month_dates = isset($context['month_dates']) && is_array($context['month_dates']) ? $context['month_dates'] : [];
-                    $month_date_count = count($month_dates);
-                    $checkins_header_label = esc_html__('Check-ins', 'habit-tracker');
-                    ?>
-                    <div class="habit-tracker-month-table-wrap">
-                        <table class="habit-tracker-month-table">
-                            <thead>
-                                <tr class="habit-tracker-month-table__weeks">
-                                    <th class="habit-tracker-month-table__habit-col"><?php esc_html_e('Habits', 'habit-tracker'); ?></th>
-                                    <th colspan="<?php echo esc_attr((string) $month_date_count); ?>">
-                                        <?php echo esc_html($checkins_header_label); ?>
-                                    </th>
-                                    <th class="habit-tracker-month-table__progress-col"><?php esc_html_e('Progress', 'habit-tracker'); ?></th>
-                                </tr>
-                                <tr class="habit-tracker-month-table__days">
-                                    <th aria-hidden="true"></th>
-                                    <?php foreach ($month_dates as $month_date) : ?>
-                                        <th title="<?php echo esc_attr($month_date); ?>">
-                                            <span class="habit-tracker-month-dayhead">
-                                                <span class="habit-tracker-month-dayname"><?php echo esc_html(wp_date('D', strtotime($month_date))); ?></span>
-                                                <strong class="habit-tracker-month-daynum"><?php echo esc_html(wp_date('j', strtotime($month_date))); ?></strong>
-                                            </span>
-                                        </th>
-                                    <?php endforeach; ?>
-                                    <th aria-hidden="true"></th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <?php foreach ($month_rows as $row) : ?>
-                                    <tr
-                                        class="habit-tracker-month-row habit-tracker-month-row--<?php echo esc_attr($row['category']); ?>"
-                                        data-user-habit-id="<?php echo esc_attr((string) (int) $row['id']); ?>"
-                                    >
-                                        <th scope="row" class="habit-tracker-month-habit"><?php echo esc_html($row['name']); ?></th>
-
-                                        <?php foreach ($month_dates as $month_date) : ?>
-                                            <?php
-                                            $is_filled = isset($row['day_map'][$month_date]);
-                                            $is_today = $month_date === $context['today'];
-                                            $is_future = $month_date > $context['today'];
-                                            ?>
-                                            <td class="habit-tracker-month-day<?php echo $is_today ? ' is-today' : ''; ?>">
-                                                <?php if ($is_today) : ?>
-                                                    <form class="habit-tracker-month-toggle-form" method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
-                                                        <input type="hidden" name="action" value="<?php echo esc_attr(self::TOGGLE_CHECKIN_ACTION); ?>">
-                                                        <input type="hidden" name="user_habit_id" value="<?php echo esc_attr((string) $row['id']); ?>">
-                                                        <input type="hidden" name="redirect_to" value="<?php echo esc_url($context['redirect_url']); ?>">
-                                                        <?php wp_nonce_field(self::TOGGLE_CHECKIN_ACTION); ?>
-                                                        <button
-                                                            type="submit"
-                                                            class="habit-tracker-month-cell habit-tracker-month-cell--action<?php echo $is_filled ? ' is-filled' : ''; ?> is-today"
-                                                            aria-label="<?php echo esc_attr(sprintf(__('Toggle today check for %s', 'habit-tracker'), $row['name'])); ?>"
-                                                            title="<?php esc_attr_e('Toggle today check', 'habit-tracker'); ?>"
-                                                        >
-                                                            <?php echo $is_filled ? '&#10003;' : ''; ?>
-                                                        </button>
-                                                    </form>
-                                                <?php else : ?>
-                                                    <span class="habit-tracker-month-cell<?php echo $is_filled ? ' is-filled' : ''; ?><?php echo $is_future ? ' is-future' : ''; ?>"></span>
-                                                <?php endif; ?>
-                                            </td>
-                                        <?php endforeach; ?>
-
-                                        <td class="habit-tracker-month-progress">
-                                            <span class="habit-tracker-progress-bar">
-                                                <span style="width: <?php echo esc_attr((string) (int) $row['progress_percent']); ?>%;"></span>
-                                            </span>
-                                            <span class="habit-tracker-month-progress-text">
-                                                <?php echo esc_html($this->formatProgressText($row)); ?>
-                                            </span>
-                                        </td>
-                                    </tr>
-                                <?php endforeach; ?>
-                            </tbody>
-                        </table>
-                    </div>
-                <?php endif; ?>
-            </article>
-
-            <div class="habit-tracker-month-side">
-                <?php $this->renderSidePanelsContent($top_habits, $active_streaks); ?>
-            </div>
-        </div>
-        <?php
-    }
-
-    private function renderSidePanelsContent(array $top_habits, array $active_streaks): void
-    {
-        ?>
-        <article class="card app-card habit-tracker-dashboard-side habit-tracker-month-side-card">
-            <div class="habit-tracker-dashboard-panel__header">
-                <p class="app-card__eyebrow"><?php esc_html_e('Top Habits', 'habit-tracker'); ?></p>
-                <h3><?php esc_html_e('This Month', 'habit-tracker'); ?></h3>
-            </div>
-
-            <?php if ($top_habits === []) : ?>
-                <p class="habit-tracker-empty-state"><?php esc_html_e('No check-ins yet.', 'habit-tracker'); ?></p>
-            <?php else : ?>
-                <ul class="habit-tracker-ranking-list">
-                    <?php foreach ($top_habits as $top_habit) : ?>
-                        <li class="habit-tracker-ranking-item habit-tracker-ranking-item--<?php echo esc_attr($top_habit['category']); ?>">
-                            <span class="habit-tracker-ranking-item__name"><?php echo esc_html($top_habit['name']); ?></span>
-                            <span
-                                class="habit-tracker-ranking-meter"
-                                aria-label="<?php echo esc_attr(sprintf(esc_html__('%1$d of %2$d target completions', 'habit-tracker'), (int) $top_habit['completed'], (int) $top_habit['target_total'])); ?>"
-                            >
-                                <span class="habit-tracker-ranking-meter__fill<?php echo ((int) $top_habit['progress_percent'] > 0) ? ' has-value' : ''; ?>" style="width: <?php echo esc_attr((string) (int) $top_habit['progress_percent']); ?>%;">
-                                    <span class="habit-tracker-ranking-meter__count"><?php echo esc_html((string) (int) $top_habit['progress_percent']); ?>%</span>
-                                </span>
-                            </span>
-                        </li>
-                    <?php endforeach; ?>
-                </ul>
-            <?php endif; ?>
-        </article>
-
-        <article class="card app-card habit-tracker-dashboard-side habit-tracker-month-side-card habit-tracker-month-side-card--streaks">
-            <div class="habit-tracker-dashboard-panel__header">
-                <p class="app-card__eyebrow"><?php esc_html_e('Active Streaks', 'habit-tracker'); ?></p>
-                <h3><?php esc_html_e('Current Run', 'habit-tracker'); ?></h3>
-            </div>
-
-            <?php if ($active_streaks === []) : ?>
-                <p class="habit-tracker-empty-state"><?php esc_html_e('No active streaks right now.', 'habit-tracker'); ?></p>
-            <?php else : ?>
-                <ul class="habit-tracker-streak-list">
-                    <?php foreach ($active_streaks as $streak_row) : ?>
-                        <?php
-                        $streak_unit = (string) ($streak_row['streak_unit'] ?? 'day');
-                        $streak_aria = $streak_unit === 'week'
-                            ? sprintf(_n('%d week streak', '%d weeks streak', (int) $streak_row['streak'], 'habit-tracker'), (int) $streak_row['streak'])
-                            : sprintf(_n('%d day streak', '%d days streak', (int) $streak_row['streak'], 'habit-tracker'), (int) $streak_row['streak']);
-                        ?>
-                        <li class="habit-tracker-streak-item habit-tracker-streak-item--<?php echo esc_attr($streak_row['category']); ?>">
-                            <span class="habit-tracker-streak-item__name"><?php echo esc_html($streak_row['name']); ?></span>
-                            <span
-                                class="habit-tracker-streak-meter"
-                                aria-label="<?php echo esc_attr($streak_aria); ?>"
-                            >
-                                <span class="habit-tracker-streak-meter__fill" style="width: <?php echo esc_attr((string) (int) $streak_row['streak_percent']); ?>%;">
-                                    <span class="habit-tracker-streak-meter__count"><?php echo esc_html((string) (int) $streak_row['streak']); ?></span>
-                                </span>
-                            </span>
-                        </li>
-                    <?php endforeach; ?>
-                </ul>
-            <?php endif; ?>
-        </article>
-        <?php
     }
 
     private function renderMetricsCardsHtml(array $metrics): string
     {
         $cards = $this->buildMetricCards($metrics);
-        $theme_html = ThemeTemplate::render(
+        return $this->renderTemplate(
             'dashboard-metrics-cards',
             [
                 'cards' => $cards,
                 'metrics' => $metrics,
             ]
         );
-
-        if ($theme_html !== '') {
-            return $theme_html;
-        }
-
-        ob_start();
-        $this->renderMetricsCards($metrics);
-
-        return (string) ob_get_clean();
     }
 
     private function renderMetricsSectionHtml(array $metrics): string
     {
         $cards = $this->buildMetricCards($metrics);
-        $theme_html = ThemeTemplate::render(
+        return $this->renderTemplate(
             'dashboard-metrics',
             [
                 'cards' => $cards,
                 'metrics' => $metrics,
             ]
         );
-
-        if ($theme_html !== '') {
-            return $theme_html;
-        }
-
-        ob_start();
-        ?>
-        <div class="app-section app-metrics-grid habit-tracker-dashboard-metrics">
-            <?php $this->renderMetricsCards($metrics); ?>
-        </div>
-        <?php
-
-        return (string) ob_get_clean();
     }
 
     private function renderSidePanelsHtml(array $top_habits, array $active_streaks): string
     {
-        $theme_html = ThemeTemplate::render(
+        return $this->renderTemplate(
             'dashboard-side',
             [
                 'top_habits' => $top_habits,
                 'active_streaks' => $active_streaks,
             ]
         );
-
-        if ($theme_html !== '') {
-            return $theme_html;
-        }
-
-        ob_start();
-        $this->renderSidePanelsContent($top_habits, $active_streaks);
-
-        return (string) ob_get_clean();
     }
 
     private function renderPanelsHtml(array $context): string
@@ -469,7 +219,7 @@ final class DashboardShortcode
         $top_habits = $this->buildTopHabits($month_rows);
         $active_streaks = $this->buildActiveStreaks($month_rows);
         $side_html = $this->renderSidePanelsHtml($top_habits, $active_streaks);
-        $theme_html = ThemeTemplate::render(
+        return $this->renderTemplate(
             'dashboard-panels',
             [
                 'context' => $context,
@@ -481,21 +231,6 @@ final class DashboardShortcode
                 'toggle_action' => self::TOGGLE_CHECKIN_ACTION,
             ]
         );
-
-        if (
-            $theme_html !== '' &&
-            (
-                $month_rows === [] ||
-                strpos($theme_html, 'habit-tracker-month-cell--action') !== false
-            )
-        ) {
-            return $theme_html;
-        }
-
-        ob_start();
-        $this->renderPanels($context);
-
-        return (string) ob_get_clean();
     }
 
     private function buildMetricCards(array $metrics): array
@@ -614,36 +349,7 @@ final class DashboardShortcode
 
     private function enqueueAssets(): void
     {
-        $script_path = HABIT_TRACKER_PATH . 'assets/js/frontend.js';
-
-        $script_version = is_readable($script_path)
-            ? (string) filemtime($script_path)
-            : HABIT_TRACKER_VERSION;
-
-        if (FrontendAssetPolicy::shouldEnqueuePluginStyles()) {
-            $style_path = HABIT_TRACKER_PATH . 'assets/css/frontend.css';
-            $style_version = is_readable($style_path)
-                ? (string) filemtime($style_path)
-                : HABIT_TRACKER_VERSION;
-
-            wp_enqueue_style(
-                'habit-tracker-frontend',
-                HABIT_TRACKER_URL . 'assets/css/frontend.css',
-                [],
-                $style_version
-            );
-        }
-
-        wp_enqueue_script(
-            'habit-tracker-frontend',
-            HABIT_TRACKER_URL . 'assets/js/frontend.js',
-            [],
-            $script_version,
-            true
-        );
-
-        wp_localize_script(
-            'habit-tracker-frontend',
+        FrontendAssets::enqueue(
             'habitTrackerDashboard',
             [
                 'ajaxUrl' => admin_url('admin-ajax.php'),
@@ -665,5 +371,25 @@ final class DashboardShortcode
     private function buildActiveStreaks(array $rows): array
     {
         return $this->analytics->buildActiveStreaks($rows);
+    }
+
+    private function resolveLoginUrl(): string
+    {
+        $login_url = wp_login_url($this->navigation->getCurrentUrl());
+
+        if (function_exists('habitlab_get_page_url_by_slug')) {
+            $theme_login_url = habitlab_get_page_url_by_slug('login');
+
+            if (is_string($theme_login_url) && $theme_login_url !== '') {
+                return $theme_login_url;
+            }
+        }
+
+        return $login_url;
+    }
+
+    private function renderTemplate(string $template, array $context = []): string
+    {
+        return ThemeTemplate::render($template, $context);
     }
 }
