@@ -8,7 +8,7 @@ if (! defined('ABSPATH')) {
 
 final class ThemeTemplate
 {
-    public static function render(string $template, array $context = []): string
+    public static function render(string $template, array $template_data = []): string
     {
         $path = self::locate($template);
 
@@ -18,8 +18,13 @@ final class ThemeTemplate
 
         ob_start();
 
-        if ($context !== []) {
-            extract($context, EXTR_SKIP);
+        // Unified contract for templates:
+        // - $data contains the full context array.
+        // - top-level keys are extracted for backward compatibility.
+        $data = $template_data;
+
+        if ($template_data !== []) {
+            extract($template_data, EXTR_SKIP);
         }
 
         include $path;
@@ -44,6 +49,17 @@ final class ThemeTemplate
             $normalized .= '.php';
         }
 
+        $theme_template = self::locateThemeTemplate($normalized);
+
+        if ($theme_template !== '') {
+            return $theme_template;
+        }
+
+        return self::locatePluginTemplate($normalized);
+    }
+
+    private static function locateThemeTemplate(string $normalized): string
+    {
         $candidates = [
             'habit-tracker/' . $normalized,
             $normalized,
@@ -54,5 +70,17 @@ final class ThemeTemplate
 
         return (string) apply_filters('habit_tracker_theme_template_path', $located, $normalized, $candidates);
     }
-}
 
+    private static function locatePluginTemplate(string $normalized): string
+    {
+        $default_path = trailingslashit(HABIT_TRACKER_PATH) . 'templates/' . $normalized;
+
+        $path = (string) apply_filters(
+            'habit_tracker_plugin_template_path',
+            $default_path,
+            $normalized
+        );
+
+        return is_readable($path) ? $path : '';
+    }
+}
