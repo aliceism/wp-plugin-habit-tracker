@@ -14,7 +14,8 @@
   const STACK_CONTROL_SEARCH = "search";
   const STACK_CONTROL_CATEGORY = "category";
   const STACK_CONTROL_SORT = "sort";
-  const STACK_SORT_DEFAULT = "default";
+  const STACK_SORT_OLDEST = "oldest";
+  const STACK_SORT_NEWEST = "newest";
   const STACK_SORT_NAME_ASC = "name-asc";
   const STACK_SORT_NAME_DESC = "name-desc";
   const STACK_SORT_CATEGORY = "category";
@@ -33,7 +34,7 @@
   const habitsStackState = {
     search: "",
     category: "all",
-    sort: STACK_SORT_DEFAULT,
+    sort: STACK_SORT_OLDEST,
   };
 
   function hasHabitsUi() {
@@ -582,7 +583,8 @@
       filterLabel: "Filter",
       filterAll: "All categories",
       sortLabel: "Sort",
-      sortDefault: "Default order",
+      sortOldest: "Oldest",
+      sortNewest: "Newest",
       sortNameAsc: "Name (A-Z)",
       sortNameDesc: "Name (Z-A)",
       sortCategory: "Category",
@@ -605,7 +607,8 @@
       "filterLabel",
       "filterAll",
       "sortLabel",
-      "sortDefault",
+      "sortOldest",
+      "sortNewest",
       "sortNameAsc",
       "sortNameDesc",
       "sortCategory",
@@ -687,6 +690,12 @@
 
   function compareStackItemsByCurrentSort(left, right) {
     const sortMode = habitsStackState.sort;
+    const normalizedSortMode =
+      sortMode === "default"
+        ? STACK_SORT_OLDEST
+        : sortMode === "latest"
+          ? STACK_SORT_NEWEST
+          : sortMode;
     const leftName = getStackListItemName(left);
     const rightName = getStackListItemName(right);
     const nameCompare = leftName.localeCompare(rightName, undefined, {
@@ -694,15 +703,22 @@
       numeric: true,
     });
 
-    if (sortMode === STACK_SORT_NAME_ASC) {
+    if (normalizedSortMode === STACK_SORT_NAME_ASC) {
       return nameCompare;
     }
 
-    if (sortMode === STACK_SORT_NAME_DESC) {
+    if (normalizedSortMode === STACK_SORT_NAME_DESC) {
       return nameCompare * -1;
     }
 
-    if (sortMode === STACK_SORT_CATEGORY) {
+    if (normalizedSortMode === STACK_SORT_NEWEST) {
+      const leftIndex = getStackListItemOriginalOrder(left, 0);
+      const rightIndex = getStackListItemOriginalOrder(right, 0);
+
+      return rightIndex - leftIndex;
+    }
+
+    if (normalizedSortMode === STACK_SORT_CATEGORY) {
       const leftCategoryIndex = STACK_CATEGORY_ORDER.indexOf(
         getStackListItemCategory(left)
       );
@@ -846,7 +862,8 @@
       sort.setAttribute("aria-label", labels.sortLabel);
 
       [
-        [STACK_SORT_DEFAULT, labels.sortDefault],
+        [STACK_SORT_OLDEST, labels.sortOldest],
+        [STACK_SORT_NEWEST, labels.sortNewest],
         [STACK_SORT_NAME_ASC, labels.sortNameAsc],
         [STACK_SORT_NAME_DESC, labels.sortNameDesc],
         [STACK_SORT_CATEGORY, labels.sortCategory],
@@ -1022,7 +1039,7 @@
       }
 
       if (controlType === STACK_CONTROL_SORT) {
-        habitsStackState.sort = target.value || STACK_SORT_DEFAULT;
+        habitsStackState.sort = target.value || STACK_SORT_OLDEST;
         applyStackControls(stackBlock);
       }
     });
