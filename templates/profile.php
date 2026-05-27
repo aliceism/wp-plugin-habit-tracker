@@ -57,7 +57,7 @@ $update_password_action = isset($update_password_action) && is_string($update_pa
             <button
                 type="button"
                 class="card habit-tracker-block habitlab-profile-action-btn habitlab-profile-action-btn--details"
-                data-modal-open="habitlab-profile-modal-details"
+                data-ht-open-modal="habitlab-profile-modal-details"
                 aria-haspopup="dialog"
             >
                 <h3><?php esc_html_e('Profile', 'habit-tracker'); ?></h3>
@@ -69,7 +69,7 @@ $update_password_action = isset($update_password_action) && is_string($update_pa
             <button
                 type="button"
                 class="card habit-tracker-block habitlab-profile-action-btn habitlab-profile-action-btn--password"
-                data-modal-open="habitlab-profile-modal-password"
+                data-ht-open-modal="habitlab-profile-modal-password"
                 aria-haspopup="dialog"
             >
                 <h3><?php esc_html_e('Security', 'habit-tracker'); ?></h3>
@@ -81,15 +81,15 @@ $update_password_action = isset($update_password_action) && is_string($update_pa
 <div
     id="habitlab-profile-modal-details"
     class="system-modal habitlab-profile-modal"
-    data-modal
+    data-ht-modal="habitlab-profile-modal-details"
     role="dialog"
     aria-modal="true"
     aria-labelledby="habitlab-profile-modal-details-title"
     hidden
 >
-    <div class="system-modal__backdrop" data-modal-close></div>
+    <div class="system-modal__backdrop" data-ht-close-modal></div>
     <div class="system-modal__dialog" role="document" tabindex="-1">
-        <button class="system-modal__close" type="button" data-modal-close>
+        <button class="system-modal__close" type="button" data-ht-close-modal>
             <span aria-hidden="true">&times;</span>
             <span class="screen-reader-text"><?php esc_html_e('Close', 'habit-tracker'); ?></span>
         </button>
@@ -157,15 +157,15 @@ $update_password_action = isset($update_password_action) && is_string($update_pa
 <div
     id="habitlab-profile-modal-password"
     class="system-modal habitlab-profile-modal"
-    data-modal
+    data-ht-modal="habitlab-profile-modal-password"
     role="dialog"
     aria-modal="true"
     aria-labelledby="habitlab-profile-modal-password-title"
     hidden
 >
-    <div class="system-modal__backdrop" data-modal-close></div>
+    <div class="system-modal__backdrop" data-ht-close-modal></div>
     <div class="system-modal__dialog" role="document" tabindex="-1">
-        <button class="system-modal__close" type="button" data-modal-close>
+        <button class="system-modal__close" type="button" data-ht-close-modal>
             <span aria-hidden="true">&times;</span>
             <span class="screen-reader-text"><?php esc_html_e('Close', 'habit-tracker'); ?></span>
         </button>

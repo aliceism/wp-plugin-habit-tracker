@@ -1263,11 +1263,13 @@
   function openModal(modal) {
     if (!modal) return;
     modal.hidden = false;
+    modal.classList.add("is-open");
     document.body.classList.add("habit-tracker-modal-open");
   }
 
   function closeModal(modal) {
     if (!modal) return;
+    modal.classList.remove("is-open");
     modal.hidden = true;
 
     const anyOpen = document.querySelector(
@@ -1281,6 +1283,7 @@
 
   function closeAllModals() {
     document.querySelectorAll(`[${MODAL_ATTR}]`).forEach((modal) => {
+      modal.classList.remove("is-open");
       modal.hidden = true;
     });
     document.body.classList.remove("habit-tracker-modal-open");
