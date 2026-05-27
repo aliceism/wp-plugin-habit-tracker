@@ -28,9 +28,15 @@
     "habit_tracker_update_shared_habit_frequency",
     "habit_tracker_remove_user_habit",
   ]);
+  const MODAL_FOCUSABLE_SELECTOR =
+    'a[href], area[href], button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), details summary, [tabindex]:not([tabindex="-1"])';
+  const TEMP_TABINDEX_ATTR = "data-ht-temp-tabindex";
 
   let isSpaNavigationInProgress = false;
   let isStackControlEventsBound = false;
+  let activeModal = null;
+  let activeModalDialog = null;
+  let activeModalTrigger = null;
   const habitsStackState = {
     search: "",
     category: "all",
@@ -1260,24 +1266,173 @@
     return document.querySelector(`[${MODAL_ATTR}="${modalId}"]`);
   }
 
-  function openModal(modal) {
-    if (!modal) return;
-    modal.hidden = false;
-    modal.classList.add("is-open");
-    document.body.classList.add("habit-tracker-modal-open");
-  }
+  function resolveModalDialog(modal) {
+    if (!(modal instanceof HTMLElement)) {
+      return null;
+    }
 
-  function closeModal(modal) {
-    if (!modal) return;
-    modal.classList.remove("is-open");
-    modal.hidden = true;
-
-    const anyOpen = document.querySelector(
-      `[${MODAL_ATTR}]:not([hidden])`
+    const nestedDialog = modal.querySelector(
+      ".habit-tracker-modal__panel, .system-modal__dialog"
     );
 
-    if (!anyOpen) {
-      document.body.classList.remove("habit-tracker-modal-open");
+    if (nestedDialog instanceof HTMLElement) {
+      return nestedDialog;
+    }
+
+    if (modal.matches('[role="dialog"]')) {
+      return modal;
+    }
+
+    const fallbackDialog = modal.querySelector('[role="dialog"]');
+    return fallbackDialog instanceof HTMLElement ? fallbackDialog : null;
+  }
+
+  function resolveModalTrigger(modal, trigger = null) {
+    if (trigger instanceof HTMLElement) {
+      return trigger;
+    }
+
+    if (!(modal instanceof HTMLElement)) {
+      return null;
+    }
+
+    const modalId = (modal.getAttribute(MODAL_ATTR) || "").trim();
+
+    if (modalId === "") {
+      return null;
+    }
+
+    const triggers = document.querySelectorAll(`[${OPEN_ATTR}]`);
+
+    for (const candidate of triggers) {
+      if (
+        candidate instanceof HTMLElement &&
+        (candidate.getAttribute(OPEN_ATTR) || "").trim() === modalId
+      ) {
+        return candidate;
+      }
+    }
+
+    return null;
+  }
+
+  function cleanupDialogFocusState(dialog) {
+    if (!(dialog instanceof HTMLElement)) {
+      return;
+    }
+
+    if (dialog.getAttribute(TEMP_TABINDEX_ATTR) === "1") {
+      dialog.removeAttribute("tabindex");
+      dialog.removeAttribute(TEMP_TABINDEX_ATTR);
+    }
+  }
+
+  function getFocusableElements(dialog) {
+    if (!(dialog instanceof HTMLElement)) {
+      return [];
+    }
+
+    return Array.from(dialog.querySelectorAll(MODAL_FOCUSABLE_SELECTOR)).filter(
+      (element) => element instanceof HTMLElement
+    );
+  }
+
+  function focusModalDialog(dialog) {
+    if (!(dialog instanceof HTMLElement)) {
+      return;
+    }
+
+    const focusable = getFocusableElements(dialog);
+
+    if (focusable.length > 0) {
+      focusable[0].focus();
+      return;
+    }
+
+    if (!dialog.hasAttribute("tabindex")) {
+      dialog.setAttribute("tabindex", "-1");
+      dialog.setAttribute(TEMP_TABINDEX_ATTR, "1");
+    }
+
+    dialog.focus();
+  }
+
+  function updateModalBodyState() {
+    const anyOpen = document.querySelector(`[${MODAL_ATTR}]:not([hidden])`);
+
+    if (anyOpen) {
+      document.body.classList.add("habit-tracker-modal-open");
+      return;
+    }
+
+    document.body.classList.remove("habit-tracker-modal-open");
+  }
+
+  function openModal(modal, trigger = null) {
+    if (!modal) return;
+
+    if (activeModal && activeModal !== modal) {
+      closeModal(activeModal, { restoreFocus: false });
+    }
+
+    modal.classList.remove("is-open");
+    modal.hidden = false;
+    activeModal = modal;
+    activeModalDialog = resolveModalDialog(modal);
+    activeModalTrigger = resolveModalTrigger(modal, trigger);
+    updateModalBodyState();
+
+    if (activeModalTrigger instanceof HTMLElement) {
+      activeModalTrigger.setAttribute("aria-expanded", "true");
+    }
+
+    window.requestAnimationFrame(() => {
+      if (modal.hidden) {
+        return;
+      }
+
+      modal.classList.add("is-open");
+      focusModalDialog(activeModalDialog);
+    });
+  }
+
+  function closeModal(modal, options = {}) {
+    if (!modal) return;
+
+    const restoreFocus = options.restoreFocus !== false;
+
+    if (modal !== activeModal) {
+      modal.classList.remove("is-open");
+      modal.hidden = true;
+      updateModalBodyState();
+      return;
+    }
+
+    const triggerToRestore = activeModalTrigger;
+    const dialogToCleanup = activeModalDialog;
+    const activeElement = document.activeElement;
+
+    if (
+      activeElement instanceof HTMLElement &&
+      modal.contains(activeElement) &&
+      activeElement.blur
+    ) {
+      activeElement.blur();
+    }
+
+    modal.classList.remove("is-open");
+    modal.hidden = true;
+    cleanupDialogFocusState(dialogToCleanup);
+    activeModal = null;
+    activeModalDialog = null;
+    activeModalTrigger = null;
+    updateModalBodyState();
+
+    if (triggerToRestore instanceof HTMLElement) {
+      triggerToRestore.setAttribute("aria-expanded", "false");
+      if (restoreFocus) {
+        triggerToRestore.focus();
+      }
     }
   }
 
@@ -1286,7 +1441,14 @@
       modal.classList.remove("is-open");
       modal.hidden = true;
     });
-    document.body.classList.remove("habit-tracker-modal-open");
+    if (activeModalTrigger instanceof HTMLElement) {
+      activeModalTrigger.setAttribute("aria-expanded", "false");
+    }
+    cleanupDialogFocusState(activeModalDialog);
+    activeModal = null;
+    activeModalDialog = null;
+    activeModalTrigger = null;
+    updateModalBodyState();
   }
 
   markHabitsPageHeader();
@@ -1302,7 +1464,7 @@
     if (openTrigger) {
       const modalId = openTrigger.getAttribute(OPEN_ATTR) || "";
       if (modalId !== "") {
-        openModal(getModalById(modalId));
+        openModal(getModalById(modalId), openTrigger);
       }
       return;
     }
@@ -1314,8 +1476,49 @@
   });
 
   document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape") {
-      closeAllModals();
+    if (
+      event.key === "Escape" &&
+      activeModal instanceof HTMLElement &&
+      !activeModal.hidden
+    ) {
+      event.preventDefault();
+      closeModal(activeModal);
+      return;
+    }
+
+    if (
+      event.key !== "Tab" ||
+      !(activeModal instanceof HTMLElement) ||
+      activeModal.hidden ||
+      !(activeModalDialog instanceof HTMLElement)
+    ) {
+      return;
+    }
+
+    const focusable = getFocusableElements(activeModalDialog);
+
+    if (focusable.length === 0) {
+      event.preventDefault();
+      focusModalDialog(activeModalDialog);
+      return;
+    }
+
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    const current = document.activeElement;
+
+    if (!(current instanceof HTMLElement) || !activeModalDialog.contains(current)) {
+      event.preventDefault();
+      first.focus();
+      return;
+    }
+
+    if (event.shiftKey && current === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && current === last) {
+      event.preventDefault();
+      first.focus();
     }
   });
 })();
