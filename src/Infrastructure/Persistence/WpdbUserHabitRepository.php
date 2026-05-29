@@ -74,10 +74,15 @@ final class WpdbUserHabitRepository
 
         [$frequency_type, $target_count] = $this->resolveCustomFrequencyConfig($data);
         $category = $this->normalizeCategoryKey((string) ($data['category'] ?? ''));
-        $name = $this->truncateTextField((string) ($data['name'] ?? ''), self::MAX_NAME_LENGTH);
+        $name = $this->normalizeName((string) ($data['name'] ?? ''));
         $description = $this->truncateTextField((string) ($data['description'] ?? ''), self::MAX_DESCRIPTION_LENGTH);
+        $description = sanitize_textarea_field($description);
 
         if ($name === '') {
+            return 0;
+        }
+
+        if ($this->hasActiveHabitNameForUser($user_id, $name)) {
             return 0;
         }
 
@@ -141,7 +146,7 @@ final class WpdbUserHabitRepository
 
         [$frequency_type, $target_count] = $this->resolveFrequencyConfig($habit, $frequency_override);
         $category = $this->normalizeCategoryKey((string) ($habit->category ?? ''));
-        $habit_name = $this->truncateTextField((string) ($habit->name ?? ''), self::MAX_NAME_LENGTH);
+        $habit_name = $this->normalizeName((string) ($habit->name ?? ''));
         $habit_description = $this->truncateTextField((string) ($habit->description ?? ''), self::MAX_DESCRIPTION_LENGTH);
 
         if ($habit_name === '') {
@@ -153,6 +158,10 @@ final class WpdbUserHabitRepository
         if ($existing !== null) {
             if ((int) $existing->is_active === 1) {
                 return 'exists';
+            }
+
+            if ($this->hasActiveHabitNameForUser($user_id, $habit_name, (int) $existing->id)) {
+                return 'name-exists';
             }
 
             $updated = $this->wpdb->update(
@@ -174,6 +183,10 @@ final class WpdbUserHabitRepository
             );
 
             return $updated === false ? 'error' : 'reactivated';
+        }
+
+        if ($this->hasActiveHabitNameForUser($user_id, $habit_name)) {
+            return 'name-exists';
         }
 
         $timestamp = current_time('mysql');
@@ -293,11 +306,14 @@ final class WpdbUserHabitRepository
             return 'not-found';
         }
 
-        $name = $this->truncateTextField((string) ($data['name'] ?? ''), self::MAX_NAME_LENGTH);
-        $name = sanitize_text_field($name);
+        $name = $this->normalizeName((string) ($data['name'] ?? ''));
 
         if ($name === '') {
             return 'name-required';
+        }
+
+        if ($this->hasActiveHabitNameForUser($user_id, $name, $user_habit_id)) {
+            return 'name-exists';
         }
 
         [$frequency_type, $target_count] = $this->resolveCustomFrequencyConfig($data);
@@ -411,6 +427,39 @@ final class WpdbUserHabitRepository
         return is_object($row) ? $row : null;
     }
 
+    public function hasActiveHabitNameForUser(
+        int $user_id,
+        string $name,
+        ?int $exclude_user_habit_id = null
+    ): bool {
+        if ($user_id <= 0) {
+            return false;
+        }
+
+        $normalized_name = $this->normalizeName($name);
+
+        if ($normalized_name === '') {
+            return false;
+        }
+
+        if ($exclude_user_habit_id !== null && $exclude_user_habit_id > 0) {
+            $sql = $this->wpdb->prepare(
+                "SELECT COUNT(*) FROM {$this->user_habits_table} WHERE user_id = %d AND is_active = 1 AND LOWER(TRIM(name)) = LOWER(%s) AND id != %d",
+                $user_id,
+                $normalized_name,
+                $exclude_user_habit_id
+            );
+        } else {
+            $sql = $this->wpdb->prepare(
+                "SELECT COUNT(*) FROM {$this->user_habits_table} WHERE user_id = %d AND is_active = 1 AND LOWER(TRIM(name)) = LOWER(%s)",
+                $user_id,
+                $normalized_name
+            );
+        }
+
+        return (int) $this->wpdb->get_var($sql) > 0;
+    }
+
     private function nextPosition(int $user_id): int
     {
         $sql = $this->wpdb->prepare(
@@ -439,5 +488,13 @@ final class WpdbUserHabitRepository
         }
 
         return substr($value, 0, $max_length);
+    }
+
+    private function normalizeName(string $value): string
+    {
+        $name = sanitize_text_field($value);
+        $name = $this->truncateTextField($name, self::MAX_NAME_LENGTH);
+
+        return trim($name);
     }
 }

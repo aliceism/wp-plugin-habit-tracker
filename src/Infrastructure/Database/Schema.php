@@ -54,7 +54,6 @@ final class Schema
                 CREATE TABLE {$tables[self::TABLE_HABITS]} (
                     id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
                     name varchar(191) NOT NULL,
-                    slug varchar(191) NOT NULL,
                     category varchar(100) NOT NULL DEFAULT '',
                     description text NULL,
                     default_frequency_type varchar(20) NOT NULL DEFAULT '{$default_frequency_type}',
@@ -65,10 +64,9 @@ final class Schema
                     created_at datetime NOT NULL,
                     updated_at datetime NOT NULL,
                     PRIMARY KEY  (id),
-                    UNIQUE KEY slug (slug),
+                    UNIQUE KEY name_unique (name),
                     KEY is_active_sort (is_active, sort_order),
-                    KEY category (category),
-                    KEY name (name)
+                    KEY category (category)
                 ) {$charset_collate};
             ",
             self::TABLE_USER_HABITS => "

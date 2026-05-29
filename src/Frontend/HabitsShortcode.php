@@ -229,9 +229,14 @@ final class HabitsShortcode
             'custom-added' => true,
             'custom-updated' => true,
             'shared-frequency-updated' => true,
+            'custom-name-required' => true,
+            'custom-name-duplicate' => true,
+            'custom-update-name-required' => true,
+            'custom-update-name-duplicate' => true,
+            'custom-update-invalid' => true,
         ];
         $is_success = isset($success_notices[$notice]);
-        $should_close_modals = $is_success && isset($close_modal_notices[$notice]);
+        $should_close_modals = isset($close_modal_notices[$notice]);
 
         $this->sendMutationAjaxSuccessPayload(
             $notice,
@@ -279,6 +284,10 @@ final class HabitsShortcode
             return 'shared-already-added';
         }
 
+        if ($result === 'name-exists') {
+            return 'shared-name-duplicate';
+        }
+
         return 'shared-add-failed';
     }
 
@@ -317,10 +326,10 @@ final class HabitsShortcode
 
     private function processAddCustomHabitFromRequest(): string
     {
-        $name = $this->truncateTextField(
+        $name = trim($this->truncateTextField(
             sanitize_text_field(wp_unslash($_POST['name'] ?? '')),
             self::CUSTOM_NAME_MAX_LENGTH
-        );
+        ));
         $category = $this->normalizeCategoryKey(sanitize_key((string) wp_unslash($_POST['category'] ?? '')));
         $description = $this->truncateTextField(
             sanitize_textarea_field(wp_unslash($_POST['description'] ?? '')),
@@ -334,6 +343,10 @@ final class HabitsShortcode
 
         if ($name === '') {
             return 'custom-name-required';
+        }
+
+        if ($this->user_habits->hasActiveHabitNameForUser(get_current_user_id(), $name)) {
+            return 'custom-name-duplicate';
         }
 
         $created_id = $this->user_habits->createCustomHabitForUser(
@@ -356,10 +369,10 @@ final class HabitsShortcode
     private function processUpdateCustomHabitFromRequest(): string
     {
         $user_habit_id = isset($_POST['user_habit_id']) ? absint(wp_unslash($_POST['user_habit_id'])) : 0;
-        $name = $this->truncateTextField(
+        $name = trim($this->truncateTextField(
             sanitize_text_field(wp_unslash($_POST['name'] ?? '')),
             self::CUSTOM_NAME_MAX_LENGTH
-        );
+        ));
         $category = $this->normalizeCategoryKey(sanitize_key((string) wp_unslash($_POST['category'] ?? '')));
         $description = $this->truncateTextField(
             sanitize_textarea_field(wp_unslash($_POST['description'] ?? '')),
@@ -396,6 +409,10 @@ final class HabitsShortcode
 
         if ($result === 'name-required') {
             return 'custom-update-name-required';
+        }
+
+        if ($result === 'name-exists') {
+            return 'custom-update-name-duplicate';
         }
 
         if ($result === 'not-found') {
@@ -518,6 +535,10 @@ final class HabitsShortcode
                 'class' => 'habit-tracker-notice habit-tracker-notice--info',
                 'text' => __('This shared habit is already in your dashboard.', 'habit-tracker'),
             ],
+            'shared-name-duplicate' => [
+                'class' => 'habit-tracker-notice habit-tracker-notice--error',
+                'text' => __('You already have an active habit with this name in your dashboard stack.', 'habit-tracker'),
+            ],
             'shared-invalid' => [
                 'class' => 'habit-tracker-notice habit-tracker-notice--error',
                 'text' => __('Selected shared habit is not available.', 'habit-tracker'),
@@ -550,9 +571,17 @@ final class HabitsShortcode
                 'class' => 'habit-tracker-notice habit-tracker-notice--error',
                 'text' => __('Custom habit name is required.', 'habit-tracker'),
             ],
+            'custom-name-duplicate' => [
+                'class' => 'habit-tracker-notice habit-tracker-notice--error',
+                'text' => __('You already have an active habit with this name in your dashboard stack.', 'habit-tracker'),
+            ],
             'custom-update-name-required' => [
                 'class' => 'habit-tracker-notice habit-tracker-notice--error',
                 'text' => __('Custom habit name is required.', 'habit-tracker'),
+            ],
+            'custom-update-name-duplicate' => [
+                'class' => 'habit-tracker-notice habit-tracker-notice--error',
+                'text' => __('Another active habit with this name already exists in your dashboard stack.', 'habit-tracker'),
             ],
             'custom-update-invalid' => [
                 'class' => 'habit-tracker-notice habit-tracker-notice--info',

@@ -12,7 +12,6 @@ if (! defined('ABSPATH')) {
 final class WpdbHabitRepository
 {
     private const MAX_NAME_LENGTH = 191;
-    private const MAX_SLUG_LENGTH = 191;
     private const MAX_DESCRIPTION_LENGTH = 5000;
 
     private \wpdb $wpdb;
@@ -102,11 +101,10 @@ final class WpdbHabitRepository
     {
         $timestamp = current_time('mysql');
         $category = $this->normalizeCategoryKey((string) ($data['category'] ?? ''));
-        $name = $this->truncateTextField((string) ($data['name'] ?? ''), self::MAX_NAME_LENGTH);
-        $slug = $this->truncateTextField((string) ($data['slug'] ?? ''), self::MAX_SLUG_LENGTH);
+        $name = $this->normalizeName((string) ($data['name'] ?? ''));
         $description = $this->truncateTextField((string) ($data['description'] ?? ''), self::MAX_DESCRIPTION_LENGTH);
 
-        if ($name === '' || $slug === '') {
+        if ($name === '') {
             return 0;
         }
 
@@ -114,7 +112,6 @@ final class WpdbHabitRepository
             $this->habits_table,
             [
                 'name'                     => $name,
-                'slug'                     => $slug,
                 'category'                 => $category,
                 'description'              => $description,
                 'default_frequency_type'   => $data['default_frequency_type'],
@@ -126,7 +123,6 @@ final class WpdbHabitRepository
                 'updated_at'               => $timestamp,
             ],
             [
-                '%s',
                 '%s',
                 '%s',
                 '%s',
@@ -154,11 +150,10 @@ final class WpdbHabitRepository
         }
 
         $category = $this->normalizeCategoryKey((string) ($data['category'] ?? ''));
-        $name = $this->truncateTextField((string) ($data['name'] ?? ''), self::MAX_NAME_LENGTH);
-        $slug = $this->truncateTextField((string) ($data['slug'] ?? ''), self::MAX_SLUG_LENGTH);
+        $name = $this->normalizeName((string) ($data['name'] ?? ''));
         $description = $this->truncateTextField((string) ($data['description'] ?? ''), self::MAX_DESCRIPTION_LENGTH);
 
-        if ($name === '' || $slug === '') {
+        if ($name === '') {
             return false;
         }
 
@@ -166,7 +161,6 @@ final class WpdbHabitRepository
             $this->habits_table,
             [
                 'name'                     => $name,
-                'slug'                     => $slug,
                 'category'                 => $category,
                 'description'              => $description,
                 'default_frequency_type'   => $data['default_frequency_type'],
@@ -177,7 +171,6 @@ final class WpdbHabitRepository
             ],
             ['id' => $habit_id],
             [
-                '%s',
                 '%s',
                 '%s',
                 '%s',
@@ -260,57 +253,6 @@ final class WpdbHabitRepository
         return $counts;
     }
 
-    public function generateUniqueSlug(string $requested_slug, ?int $exclude_habit_id = null): string
-    {
-        $base_slug = sanitize_title($requested_slug);
-
-        if ($base_slug === '') {
-            $base_slug = 'habit';
-        }
-
-        $base_slug = $this->truncateTextField($base_slug, self::MAX_SLUG_LENGTH);
-
-        if ($base_slug === '') {
-            $base_slug = 'habit';
-        }
-
-        $candidate = $base_slug;
-        $suffix = 2;
-
-        while ($this->slugExists($candidate, $exclude_habit_id)) {
-            $suffix_text = '-' . $suffix;
-            $available_length = self::MAX_SLUG_LENGTH - strlen($suffix_text);
-
-            if ($available_length <= 0) {
-                $candidate = substr($suffix_text, -self::MAX_SLUG_LENGTH);
-            } else {
-                $candidate = substr($base_slug, 0, $available_length) . $suffix_text;
-            }
-
-            $suffix++;
-        }
-
-        return $candidate;
-    }
-
-    private function slugExists(string $slug, ?int $exclude_habit_id = null): bool
-    {
-        if ($exclude_habit_id !== null && $exclude_habit_id > 0) {
-            $sql = $this->wpdb->prepare(
-                "SELECT COUNT(*) FROM {$this->habits_table} WHERE slug = %s AND id != %d",
-                $slug,
-                $exclude_habit_id
-            );
-        } else {
-            $sql = $this->wpdb->prepare(
-                "SELECT COUNT(*) FROM {$this->habits_table} WHERE slug = %s",
-                $slug
-            );
-        }
-
-        return (int) $this->wpdb->get_var($sql) > 0;
-    }
-
     private function normalizeCategoryKey(string $category): string
     {
         return HabitRules::normalizeCategoryKey($category);
@@ -325,8 +267,7 @@ final class WpdbHabitRepository
 
         if ($search !== '') {
             $pattern = '%' . $this->wpdb->esc_like($search) . '%';
-            $conditions[] = '(name LIKE %s OR slug LIKE %s OR description LIKE %s OR category LIKE %s)';
-            $args[] = $pattern;
+            $conditions[] = '(name LIKE %s OR description LIKE %s OR category LIKE %s)';
             $args[] = $pattern;
             $args[] = $pattern;
             $args[] = $pattern;
@@ -371,6 +312,14 @@ final class WpdbHabitRepository
         }
 
         return 'is_active DESC, id ASC';
+    }
+
+    private function normalizeName(string $value): string
+    {
+        $name = sanitize_text_field($value);
+        $name = $this->truncateTextField($name, self::MAX_NAME_LENGTH);
+
+        return trim($name);
     }
 
     private function truncateTextField(string $value, int $max_length): string

@@ -16,7 +16,6 @@ final class HabitAdminPage
     private const TOGGLE_ACTION = 'habit_tracker_toggle_habit';
     private const DELETE_ACTION = 'habit_tracker_delete_habit';
     private const IMPORT_NAME_MAX_LENGTH = 191;
-    private const IMPORT_SLUG_MAX_LENGTH = 191;
     private const IMPORT_DESCRIPTION_MAX_LENGTH = 5000;
 
     private WpdbHabitRepository $habits;
@@ -95,24 +94,6 @@ final class HabitAdminPage
                                     required
                                     value="<?php echo esc_attr($form_values['name']); ?>"
                                 >
-                            </td>
-                        </tr>
-                        <tr>
-                            <th scope="row">
-                                <label for="habit-slug"><?php esc_html_e('Slug', 'habit-tracker'); ?></label>
-                            </th>
-                            <td>
-                                <input
-                                    id="habit-slug"
-                                    name="slug"
-                                    type="text"
-                                    class="regular-text"
-                                    maxlength="191"
-                                    value="<?php echo esc_attr($form_values['slug']); ?>"
-                                >
-                                <p class="description">
-                                    <?php esc_html_e('Leave blank to generate a unique slug from the name.', 'habit-tracker'); ?>
-                                </p>
                             </td>
                         </tr>
                         <tr>
@@ -211,7 +192,7 @@ final class HabitAdminPage
                         type="search"
                         name="search"
                         value="<?php echo esc_attr($list_filters['search']); ?>"
-                        placeholder="<?php esc_attr_e('Name, slug, description...', 'habit-tracker'); ?>"
+                        placeholder="<?php esc_attr_e('Name, description...', 'habit-tracker'); ?>"
                         class="regular-text"
                     >
                 </div>
@@ -287,7 +268,6 @@ final class HabitAdminPage
                     <thead>
                     <tr>
                         <th><?php esc_html_e('Name', 'habit-tracker'); ?></th>
-                        <th><?php esc_html_e('Slug', 'habit-tracker'); ?></th>
                         <th><?php esc_html_e('Category', 'habit-tracker'); ?></th>
                         <th><?php esc_html_e('Status', 'habit-tracker'); ?></th>
                         <th><?php esc_html_e('Used By', 'habit-tracker'); ?></th>
@@ -306,7 +286,6 @@ final class HabitAdminPage
                                     <p><?php echo esc_html(wp_trim_words((string) $habit_row->description, 18)); ?></p>
                                 <?php endif; ?>
                             </td>
-                            <td><code><?php echo esc_html($habit_row->slug); ?></code></td>
                             <td><?php echo esc_html($this->resolveCategoryLabel((string) $habit_row->category)); ?></td>
                             <td><?php echo esc_html(((int) $habit_row->is_active === 1) ? __('Active', 'habit-tracker') : __('Inactive', 'habit-tracker')); ?></td>
                             <td><?php echo esc_html((string) $assignment_count); ?></td>
@@ -366,14 +345,10 @@ final class HabitAdminPage
             $this->redirect('habit-not-found');
         }
 
-        $name = $this->truncateImportText(
+        $name = trim($this->truncateImportText(
             sanitize_text_field(wp_unslash($_POST['name'] ?? '')),
             self::IMPORT_NAME_MAX_LENGTH
-        );
-        $slug_input = $this->truncateImportText(
-            sanitize_text_field(wp_unslash($_POST['slug'] ?? '')),
-            self::IMPORT_SLUG_MAX_LENGTH
-        );
+        ));
         $category = $this->normalizeCategoryKey(sanitize_key((string) wp_unslash($_POST['category'] ?? '')));
         $description = $this->truncateImportText(
             sanitize_textarea_field(wp_unslash($_POST['description'] ?? '')),
@@ -387,13 +362,8 @@ final class HabitAdminPage
             $this->redirect('habit-name-required', $target);
         }
 
-        if ($slug_input === '' && $existing !== null) {
-            $slug_input = (string) $existing->slug;
-        }
-
         $data = [
             'name'                     => $name,
-            'slug'                     => $this->habits->generateUniqueSlug($slug_input !== '' ? $slug_input : $name, $habit_id > 0 ? $habit_id : null),
             'category'                 => $category,
             'description'              => $description,
             'default_frequency_type'   => HabitRules::FREQUENCY_DAILY,
@@ -486,7 +456,6 @@ final class HabitAdminPage
         if ($habit === null) {
             return [
                 'name' => '',
-                'slug' => '',
                 'category' => HabitRules::CATEGORY_MIND,
                 'description' => '',
                 'sort_order' => '0',
@@ -496,7 +465,6 @@ final class HabitAdminPage
 
         return [
             'name' => (string) $habit->name,
-            'slug' => (string) $habit->slug,
             'category' => $this->normalizeCategoryKey((string) $habit->category),
             'description' => (string) $habit->description,
             'sort_order' => (string) $habit->sort_order,
