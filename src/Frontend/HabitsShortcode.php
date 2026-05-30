@@ -124,7 +124,7 @@ final class HabitsShortcode
         $this->enqueueAssets();
 
         if (! is_user_logged_in()) {
-            return $this->renderLoggedOut();
+            return '';
         }
 
         $context = $this->getLoggedInContext();
@@ -140,7 +140,7 @@ final class HabitsShortcode
         $this->enqueueAssets();
 
         if (! is_user_logged_in()) {
-            return $this->renderLoggedOut();
+            return '';
         }
 
         $context = $this->getLoggedInContext();
@@ -158,7 +158,7 @@ final class HabitsShortcode
         $this->enqueueAssets();
 
         if (! is_user_logged_in()) {
-            return $this->renderLoggedOut();
+            return '';
         }
 
         $context = $this->getLoggedInContext();
