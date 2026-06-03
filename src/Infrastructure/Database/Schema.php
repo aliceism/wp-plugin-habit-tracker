@@ -46,6 +46,7 @@ final class Schema
     {
         $tables = self::getTableNames($wpdb);
         $charset_collate = $wpdb->get_charset_collate();
+        $default_category = HabitRules::CATEGORY_LIFE;
         $default_frequency_type = HabitRules::FREQUENCY_DAILY;
         $default_target_count = HabitRules::DEFAULT_TARGET_COUNT;
 
@@ -54,7 +55,7 @@ final class Schema
                 CREATE TABLE {$tables[self::TABLE_HABITS]} (
                     id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
                     name varchar(191) NOT NULL,
-                    category varchar(100) NOT NULL DEFAULT '',
+                    category varchar(100) NOT NULL DEFAULT '{$default_category}',
                     description text NULL,
                     default_frequency_type varchar(20) NOT NULL DEFAULT '{$default_frequency_type}',
                     default_target_count smallint(5) unsigned NOT NULL DEFAULT {$default_target_count},
@@ -76,7 +77,7 @@ final class Schema
                     habit_id bigint(20) unsigned NULL,
                     source_type varchar(20) NOT NULL,
                     name varchar(191) NOT NULL,
-                    category varchar(100) NOT NULL DEFAULT '',
+                    category varchar(100) NOT NULL DEFAULT '{$default_category}',
                     description text NULL,
                     frequency_type varchar(20) NOT NULL DEFAULT '{$default_frequency_type}',
                     target_count smallint(5) unsigned NOT NULL DEFAULT {$default_target_count},
