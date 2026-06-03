@@ -8,7 +8,7 @@ if (! defined('ABSPATH')) {
 
 final class Migrations
 {
-    private const DB_VERSION = '1.2.1';
+    private const DB_VERSION = '1.3.0';
     private const DB_VERSION_OPTION = 'habit_tracker_db_version';
 
     public static function activate(): void

@@ -60,13 +60,12 @@ final class Schema
                     default_frequency_type varchar(20) NOT NULL DEFAULT '{$default_frequency_type}',
                     default_target_count smallint(5) unsigned NOT NULL DEFAULT {$default_target_count},
                     is_active tinyint(1) NOT NULL DEFAULT 1,
-                    sort_order int(10) unsigned NOT NULL DEFAULT 0,
                     created_by_user_id bigint(20) unsigned NOT NULL,
                     created_at datetime NOT NULL,
                     updated_at datetime NOT NULL,
                     PRIMARY KEY  (id),
                     UNIQUE KEY name_unique (name),
-                    KEY is_active_sort (is_active, sort_order),
+                    KEY is_active (is_active),
                     KEY category (category)
                 ) {$charset_collate};
             ",

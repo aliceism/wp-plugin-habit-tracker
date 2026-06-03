@@ -65,14 +65,6 @@ final class WpdbHabitRepository
         return (int) $this->wpdb->get_var($sql);
     }
 
-    public function getMaxSortOrderForAdmin(): int
-    {
-        $sql = "SELECT MAX(sort_order) FROM {$this->habits_table}";
-        $max_sort_order = (int) $this->wpdb->get_var($sql);
-
-        return max(0, $max_sort_order);
-    }
-
     public function findActiveForFrontend(): array
     {
         $sql = "SELECT * FROM {$this->habits_table} WHERE is_active = 1 ORDER BY created_at ASC, id ASC";
@@ -117,7 +109,6 @@ final class WpdbHabitRepository
                 'default_frequency_type'   => $data['default_frequency_type'],
                 'default_target_count'     => $data['default_target_count'],
                 'is_active'                => $data['is_active'],
-                'sort_order'               => $data['sort_order'],
                 'created_by_user_id'       => $created_by_user_id,
                 'created_at'               => $timestamp,
                 'updated_at'               => $timestamp,
@@ -127,7 +118,6 @@ final class WpdbHabitRepository
                 '%s',
                 '%s',
                 '%s',
-                '%d',
                 '%d',
                 '%d',
                 '%d',
@@ -166,7 +156,6 @@ final class WpdbHabitRepository
                 'default_frequency_type'   => $data['default_frequency_type'],
                 'default_target_count'     => $data['default_target_count'],
                 'is_active'                => $data['is_active'],
-                'sort_order'               => $data['sort_order'],
                 'updated_at'               => current_time('mysql'),
             ],
             ['id' => $habit_id],
@@ -175,7 +164,6 @@ final class WpdbHabitRepository
                 '%s',
                 '%s',
                 '%s',
-                '%d',
                 '%d',
                 '%d',
                 '%s',

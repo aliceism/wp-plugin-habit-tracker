@@ -129,22 +129,6 @@ final class HabitAdminPage
                             </td>
                         </tr>
                         <tr>
-                            <th scope="row">
-                                <label for="habit-sort-order"><?php esc_html_e('Sort Order', 'habit-tracker'); ?></label>
-                            </th>
-                            <td>
-                                <input
-                                    id="habit-sort-order"
-                                    name="sort_order"
-                                    type="number"
-                                    class="small-text"
-                                    min="0"
-                                    step="1"
-                                    value="<?php echo esc_attr($form_values['sort_order']); ?>"
-                                >
-                            </td>
-                        </tr>
-                        <tr>
                             <th scope="row"><?php esc_html_e('Defaults', 'habit-tracker'); ?></th>
                             <td>
                                 <p class="description">
@@ -271,7 +255,6 @@ final class HabitAdminPage
                         <th><?php esc_html_e('Category', 'habit-tracker'); ?></th>
                         <th><?php esc_html_e('Status', 'habit-tracker'); ?></th>
                         <th><?php esc_html_e('Used By', 'habit-tracker'); ?></th>
-                        <th><?php esc_html_e('Sort', 'habit-tracker'); ?></th>
                         <th><?php esc_html_e('Updated', 'habit-tracker'); ?></th>
                         <th><?php esc_html_e('Actions', 'habit-tracker'); ?></th>
                     </tr>
@@ -289,7 +272,6 @@ final class HabitAdminPage
                             <td><?php echo esc_html($this->resolveCategoryLabel((string) $habit_row->category)); ?></td>
                             <td><?php echo esc_html(((int) $habit_row->is_active === 1) ? __('Active', 'habit-tracker') : __('Inactive', 'habit-tracker')); ?></td>
                             <td><?php echo esc_html((string) $assignment_count); ?></td>
-                            <td><?php echo esc_html((string) $habit_row->sort_order); ?></td>
                             <td><?php echo esc_html(mysql2date('Y-m-d H:i', (string) $habit_row->updated_at, false)); ?></td>
                             <td>
                                 <a
@@ -354,7 +336,6 @@ final class HabitAdminPage
             sanitize_textarea_field(wp_unslash($_POST['description'] ?? '')),
             self::IMPORT_DESCRIPTION_MAX_LENGTH
         );
-        $sort_order = max(0, (int) wp_unslash($_POST['sort_order'] ?? 0));
         $is_active = isset($_POST['is_active']) ? 1 : 0;
 
         if ($name === '') {
@@ -369,7 +350,6 @@ final class HabitAdminPage
             'default_frequency_type'   => HabitRules::FREQUENCY_DAILY,
             'default_target_count'     => HabitRules::DEFAULT_TARGET_COUNT,
             'is_active'                => $is_active,
-            'sort_order'               => $sort_order,
         ];
 
         if ($habit_id > 0) {
@@ -458,7 +438,6 @@ final class HabitAdminPage
                 'name' => '',
                 'category' => HabitRules::CATEGORY_MIND,
                 'description' => '',
-                'sort_order' => '0',
                 'is_active' => '1',
             ];
         }
@@ -467,7 +446,6 @@ final class HabitAdminPage
             'name' => (string) $habit->name,
             'category' => $this->normalizeCategoryKey((string) $habit->category),
             'description' => (string) $habit->description,
-            'sort_order' => (string) $habit->sort_order,
             'is_active' => ((int) $habit->is_active === 1) ? '1' : '0',
         ];
     }
