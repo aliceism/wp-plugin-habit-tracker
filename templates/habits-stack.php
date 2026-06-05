@@ -26,7 +26,7 @@ $target_options = isset($target_options) && is_array($target_options) ? $target_
 ?>
 <article class="card app-card habit-tracker-block habit-tracker-block--stack">
     <div class="habit-tracker-block__header">
-        <p class="app-card__eyebrow"><?php esc_html_e('Dashboard Stack', 'habit-tracker'); ?></p>
+        <p class="app-card__eyebrow"><?php esc_html_e('Habit Stack', 'habit-tracker'); ?></p>
         <h3><?php esc_html_e('Your Active Habits', 'habit-tracker'); ?></h3>
     </div>
 
@@ -62,7 +62,7 @@ $target_options = isset($target_options) && is_array($target_options) ? $target_
                                     class="habit-tracker-inline-form"
                                     method="post"
                                     action="<?php echo esc_url($admin_post_url); ?>"
-                                    data-ht-confirm="<?php esc_attr_e('Remove this habit from your dashboard stack?', 'habit-tracker'); ?>"
+                                    data-ht-confirm="<?php esc_attr_e('Remove this habit from your habit stack?', 'habit-tracker'); ?>"
                                 >
                                     <input type="hidden" name="action" value="<?php echo esc_attr($remove_action); ?>">
                                     <input type="hidden" name="user_habit_id" value="<?php echo esc_attr((string) $stack_item_id); ?>">
@@ -71,8 +71,8 @@ $target_options = isset($target_options) && is_array($target_options) ? $target_
                                     <button
                                         type="submit"
                                         class="habit-tracker-stack-item__remove"
-                                        aria-label="<?php esc_attr_e('Remove from dashboard stack', 'habit-tracker'); ?>"
-                                        title="<?php esc_attr_e('Remove from dashboard stack', 'habit-tracker'); ?>"
+                                        aria-label="<?php esc_attr_e('Remove from habit stack', 'habit-tracker'); ?>"
+                                        title="<?php esc_attr_e('Remove from habit stack', 'habit-tracker'); ?>"
                                     >
                                         <span class="habit-tracker-stack-item__remove-glyph" aria-hidden="true"></span>
                                     </button>

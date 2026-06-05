@@ -26,7 +26,7 @@ $side_html = isset($side_html) ? (string) $side_html : '';
         </div>
 
         <?php if ($month_rows === []) : ?>
-            <p class="habit-tracker-empty-state"><?php esc_html_e('No active habits in your dashboard stack yet.', 'habit-tracker'); ?></p>
+            <p class="habit-tracker-empty-state"><?php esc_html_e('No active habits in your habit stack yet.', 'habit-tracker'); ?></p>
         <?php else : ?>
             <div class="habit-tracker-month-table-wrap">
                 <table class="habit-tracker-month-table">

@@ -537,7 +537,7 @@ final class HabitsShortcode
             ],
             'shared-name-duplicate' => [
                 'class' => 'habit-tracker-notice habit-tracker-notice--error',
-                'text' => __('You already have an active habit with this name in your dashboard stack.', 'habit-tracker'),
+                'text' => __('You already have an active habit with this name in your habit stack.', 'habit-tracker'),
             ],
             'shared-invalid' => [
                 'class' => 'habit-tracker-notice habit-tracker-notice--error',
@@ -553,7 +553,7 @@ final class HabitsShortcode
             ],
             'shared-frequency-invalid' => [
                 'class' => 'habit-tracker-notice habit-tracker-notice--info',
-                'text' => __('This shared habit is no longer available in your dashboard stack.', 'habit-tracker'),
+                'text' => __('This shared habit is no longer available in your habit stack.', 'habit-tracker'),
             ],
             'shared-frequency-failed' => [
                 'class' => 'habit-tracker-notice habit-tracker-notice--error',
@@ -573,7 +573,7 @@ final class HabitsShortcode
             ],
             'custom-name-duplicate' => [
                 'class' => 'habit-tracker-notice habit-tracker-notice--error',
-                'text' => __('You already have an active habit with this name in your dashboard stack.', 'habit-tracker'),
+                'text' => __('You already have an active habit with this name in your habit stack.', 'habit-tracker'),
             ],
             'custom-update-name-required' => [
                 'class' => 'habit-tracker-notice habit-tracker-notice--error',
@@ -581,11 +581,11 @@ final class HabitsShortcode
             ],
             'custom-update-name-duplicate' => [
                 'class' => 'habit-tracker-notice habit-tracker-notice--error',
-                'text' => __('Another active habit with this name already exists in your dashboard stack.', 'habit-tracker'),
+                'text' => __('Another active habit with this name already exists in your habit stack.', 'habit-tracker'),
             ],
             'custom-update-invalid' => [
                 'class' => 'habit-tracker-notice habit-tracker-notice--info',
-                'text' => __('This custom habit is no longer available in your dashboard stack.', 'habit-tracker'),
+                'text' => __('This custom habit is no longer available in your habit stack.', 'habit-tracker'),
             ],
             'custom-add-failed' => [
                 'class' => 'habit-tracker-notice habit-tracker-notice--error',
@@ -597,15 +597,15 @@ final class HabitsShortcode
             ],
             'stack-removed' => [
                 'class' => 'habit-tracker-notice habit-tracker-notice--success',
-                'text' => __('Habit removed from your dashboard stack.', 'habit-tracker'),
+                'text' => __('Habit removed from your habit stack.', 'habit-tracker'),
             ],
             'stack-remove-invalid' => [
                 'class' => 'habit-tracker-notice habit-tracker-notice--info',
-                'text' => __('This habit is no longer active in your dashboard stack.', 'habit-tracker'),
+                'text' => __('This habit is no longer active in your habit stack.', 'habit-tracker'),
             ],
             'stack-remove-failed' => [
                 'class' => 'habit-tracker-notice habit-tracker-notice--error',
-                'text' => __('Could not remove the habit from your dashboard stack.', 'habit-tracker'),
+                'text' => __('Could not remove the habit from your habit stack.', 'habit-tracker'),
             ],
         ];
     }
