@@ -34,8 +34,6 @@ The project focuses on product-oriented problem solving: helping users select me
 
 ## Screenshots
 
-Screenshots can be added to `docs/screenshots/` when available.
-
 | Area | Placeholder |
 | --- | --- |
 | Dashboard | `docs/screenshots/dashboard.png` |
