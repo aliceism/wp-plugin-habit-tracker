@@ -36,10 +36,10 @@ The project focuses on product-oriented problem solving: helping users select me
 
 | Area | Placeholder |
 | --- | --- |
-| Dashboard | `docs/screenshots/dashboard.png` |
-| Habit Library | `docs/screenshots/habits.png` |
-| Progress Analytics | `docs/screenshots/progress.png` |
-| Admin Management | `docs/screenshots/admin.png` |
+| Dashboard | `docs/screenshots/dashboard.jpg/dashboard2.jpg` |
+| Habit Library | `docs/screenshots/habits.jpg` |
+| Progress Analytics | `docs/screenshots/progress.jpg/progress2.jpg/progress3.jpg` |
+| Admin Management | `docs/screenshots/admin.jpg/admin2.jpg` |
 
 ## Architecture
 
